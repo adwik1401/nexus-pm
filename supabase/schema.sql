@@ -297,3 +297,57 @@ create table if not exists public.meeting_stakeholder_attendees (
 );
 alter table public.meeting_stakeholder_attendees enable row level security;
 create policy "meeting_stk_all" on public.meeting_stakeholder_attendees for all to authenticated using (true) with check (true);
+
+-- 19. ACTIVITY LOGS (code references this table but it was never created)
+create table if not exists public.activity_logs (
+  id         uuid primary key default gen_random_uuid(),
+  task_id    uuid not null references public.tasks(id) on delete cascade,
+  user_id    uuid not null references public.profiles(id) on delete cascade,
+  action     text not null,
+  meta       jsonb not null default '{}',
+  created_at timestamptz default now()
+);
+alter table public.activity_logs enable row level security;
+create policy "activity_logs_all" on public.activity_logs for all to authenticated using (true) with check (true);
+
+-- 20. NOTIFICATIONS
+create table if not exists public.notifications (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  type        text not null,
+  title       text not null,
+  body        text not null,
+  entity_id   uuid,
+  entity_type text,
+  read        boolean not null default false,
+  created_at  timestamptz default now()
+);
+alter table public.notifications enable row level security;
+create policy "notifs_own" on public.notifications for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create unique index if not exists notifs_reminder_uniq on public.notifications(user_id, entity_id, type) where type = 'meeting_reminder';
+
+-- 21. KRAs (Key Responsibility Areas)
+create table if not exists public.kras (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  title       text not null,
+  description text not null default '',
+  created_by  uuid references public.profiles(id) on delete set null,
+  created_at  timestamptz default now()
+);
+alter table public.kras enable row level security;
+create policy "kras_select" on public.kras for select to authenticated using (true);
+create policy "kras_write"  on public.kras for all to authenticated using (public.current_user_role() = 'ADMIN') with check (public.current_user_role() = 'ADMIN');
+
+-- 22. KPIs (Key Performance Indicators)
+create table if not exists public.kpis (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references public.profiles(id) on delete cascade,
+  title       text not null,
+  description text not null default '',
+  created_by  uuid references public.profiles(id) on delete set null,
+  created_at  timestamptz default now()
+);
+alter table public.kpis enable row level security;
+create policy "kpis_select" on public.kpis for select to authenticated using (true);
+create policy "kpis_write"  on public.kpis for all to authenticated using (public.current_user_role() = 'ADMIN') with check (public.current_user_role() = 'ADMIN');

@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Plus, Trash2, Check, X, Pencil } from 'lucide-react'
+import { Plus, Trash2, Check, X, Pencil, ChevronDown, ChevronRight } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import type { ExternalStakeholder, IconType, Profile, Role } from '../types'
+import type { ExternalStakeholder, IconType, KPI, KRA, Profile, Role } from '../types'
 import {
   createVertical, updateVertical, deleteVertical, setVerticalLead,
 } from '../services/verticals'
@@ -13,6 +13,10 @@ import {
 import {
   createStakeholder, updateStakeholder, deleteStakeholder,
 } from '../services/stakeholders'
+import {
+  listKRAs, createKRA, updateKRA, deleteKRA,
+  listKPIs, createKPI, updateKPI, deleteKPI,
+} from '../services/kras'
 import { Avatar } from '../components/Sidebar/Sidebar'
 import { Layers, Server, DollarSign, Code2 } from 'lucide-react'
 
@@ -156,9 +160,128 @@ function VerticalsTab() {
   )
 }
 
+// ── Objective sub-list (KRAs or KPIs) ─────────────────────────────────────────
+function ObjectiveList({ userId, type }: { userId: string; type: 'kra' | 'kpi' }) {
+  const [items, setItems] = useState<KRA[] | KPI[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [addTitle, setAddTitle] = useState('')
+  const [addDesc, setAddDesc] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+
+  const load = async () => {
+    const data = type === 'kra' ? await listKRAs(userId) : await listKPIs(userId)
+    setItems(data as KRA[] | KPI[])
+    setLoaded(true)
+  }
+
+  if (!loaded) { load(); return <p className="text-xs text-gray-400 py-1">Loading…</p> }
+
+  const handleAdd = async () => {
+    if (!addTitle.trim()) return
+    const item = type === 'kra'
+      ? await createKRA(userId, addTitle.trim(), addDesc.trim())
+      : await createKPI(userId, addTitle.trim(), addDesc.trim())
+    setItems(prev => [...prev, item] as KRA[] | KPI[])
+    setAddTitle(''); setAddDesc(''); setAdding(false)
+  }
+
+  const handleUpdate = async (id: string) => {
+    const fn = type === 'kra' ? updateKRA : updateKPI
+    await fn(id, { title: editTitle.trim(), description: editDesc.trim() })
+    setItems(prev => prev.map(i => i.id === id ? { ...i, title: editTitle.trim(), description: editDesc.trim() } : i) as KRA[] | KPI[])
+    setEditId(null)
+  }
+
+  const handleDelete = async (id: string) => {
+    const fn = type === 'kra' ? deleteKRA : deleteKPI
+    await fn(id)
+    setItems(prev => prev.filter(i => i.id !== id) as KRA[] | KPI[])
+  }
+
+  const label = type === 'kra' ? 'KRA' : 'KPI'
+
+  return (
+    <div>
+      <div className="space-y-2 mb-2">
+        {items.map(item => (
+          editId === item.id ? (
+            <div key={item.id} className="border border-indigo-200 rounded-lg p-2 space-y-1.5">
+              <input
+                value={editTitle}
+                onChange={e => setEditTitle(e.target.value)}
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-300"
+                placeholder="Title"
+              />
+              <textarea
+                value={editDesc}
+                onChange={e => setEditDesc(e.target.value)}
+                rows={2}
+                className="w-full border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-300 resize-none"
+                placeholder="Description"
+              />
+              <div className="flex gap-1.5">
+                <button onClick={() => handleUpdate(item.id)} className="text-xs text-white bg-indigo-500 hover:bg-indigo-600 px-2 py-0.5 rounded flex items-center gap-1"><Check size={10} />Save</button>
+                <button onClick={() => setEditId(null)} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded border border-gray-200">Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div key={item.id} className="flex items-start gap-2 border border-gray-100 rounded-lg px-3 py-2 group">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-gray-800 truncate">{item.title}</p>
+                {item.description && <p className="text-xs text-gray-400 mt-0.5">{item.description}</p>}
+              </div>
+              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                <button onClick={() => { setEditId(item.id); setEditTitle(item.title); setEditDesc(item.description) }}
+                  className="text-gray-400 hover:text-indigo-500 transition-colors"><Pencil size={12} /></button>
+                <button onClick={() => handleDelete(item.id)}
+                  className="text-gray-400 hover:text-red-500 transition-colors"><Trash2 size={12} /></button>
+              </div>
+            </div>
+          )
+        ))}
+      </div>
+
+      {adding ? (
+        <div className="border border-indigo-200 rounded-lg p-2 space-y-1.5">
+          <input
+            autoFocus
+            value={addTitle}
+            onChange={e => setAddTitle(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            className="w-full border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-300"
+            placeholder={`${label} title`}
+          />
+          <textarea
+            value={addDesc}
+            onChange={e => setAddDesc(e.target.value)}
+            rows={2}
+            className="w-full border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-indigo-300 resize-none"
+            placeholder="Description (optional)"
+          />
+          <div className="flex gap-1.5">
+            <button onClick={handleAdd} className="text-xs text-white bg-indigo-500 hover:bg-indigo-600 px-2 py-0.5 rounded flex items-center gap-1"><Check size={10} />Add</button>
+            <button onClick={() => { setAdding(false); setAddTitle(''); setAddDesc('') }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5 rounded border border-gray-200">Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={() => setAdding(true)}
+          className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+        >
+          <Plus size={11} /> Add {label}
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── Users tab ─────────────────────────────────────────────────────────────────
 function UsersTab() {
   const { users, verticals, refreshUsers } = useApp()
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const handleRoleChange = async (userId: string, role: Role) => {
     await updateUserRole(userId, role)
@@ -171,54 +294,58 @@ function UsersTab() {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-100 text-left">
-            <th className="px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Member</th>
-            <th className="px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Role</th>
-            <th className="px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Vertical</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-50">
-          {users.map(u => (
-            <tr key={u.id} className="hover:bg-gray-50/50 transition-colors">
-              <td className="px-5 py-3">
-                <div className="flex items-center gap-2.5">
-                  <Avatar user={u} size="sm" />
-                  <div>
-                    <p className="font-medium text-gray-800">{u.name}</p>
-                    <p className="text-xs text-gray-400 capitalize">{u.role.toLowerCase().replace('_', ' ')}</p>
-                  </div>
-                </div>
-              </td>
-              <td className="px-5 py-3">
-                <select
-                  value={u.role}
-                  onChange={e => handleRoleChange(u.id, e.target.value as Role)}
-                  className="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700 outline-none focus:border-indigo-300 bg-white"
-                >
-                  <option value="MEMBER">Member</option>
-                  <option value="VERTICAL_LEAD">Vertical Lead</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
-              </td>
-              <td className="px-5 py-3">
-                <select
-                  value={u.vertical_id ?? ''}
-                  onChange={e => handleVerticalChange(u.id, e.target.value)}
-                  className="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700 outline-none focus:border-indigo-300 bg-white"
-                >
-                  <option value="">— None —</option>
-                  {verticals.map(v => (
-                    <option key={v.id} value={v.id}>{v.name}</option>
-                  ))}
-                </select>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-3">
+      {users.map(u => (
+        <div key={u.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          {/* User row */}
+          <div className="flex items-center gap-3 px-5 py-3">
+            <button
+              onClick={() => setExpandedId(expandedId === u.id ? null : u.id)}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              {expandedId === u.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            </button>
+            <Avatar user={u} size="sm" />
+            <div className="flex-1 min-w-0">
+              <p className="font-medium text-gray-800 text-sm">{u.name}</p>
+              <p className="text-xs text-gray-400 capitalize">{u.role.toLowerCase().replace('_', ' ')}</p>
+            </div>
+            <select
+              value={u.role}
+              onChange={e => handleRoleChange(u.id, e.target.value as Role)}
+              className="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700 outline-none focus:border-indigo-300 bg-white"
+            >
+              <option value="MEMBER">Member</option>
+              <option value="VERTICAL_LEAD">Vertical Lead</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+            <select
+              value={u.vertical_id ?? ''}
+              onChange={e => handleVerticalChange(u.id, e.target.value)}
+              className="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700 outline-none focus:border-indigo-300 bg-white"
+            >
+              <option value="">— No Vertical —</option>
+              {verticals.map(v => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Expanded KRA/KPI panel */}
+          {expandedId === u.id && (
+            <div className="border-t border-gray-100 px-5 py-4 bg-gray-50/60 grid grid-cols-2 gap-6">
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Key Responsibility Areas</p>
+                <ObjectiveList key={`kra-${u.id}`} userId={u.id} type="kra" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Key Performance Indicators</p>
+                <ObjectiveList key={`kpi-${u.id}`} userId={u.id} type="kpi" />
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

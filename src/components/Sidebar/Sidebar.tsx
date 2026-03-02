@@ -1,7 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Grid3X3, Layers, Server, DollarSign, Code2,
-  CheckSquare, LayoutGrid, ShieldCheck, LogOut, Settings, CalendarDays, Video,
+  CheckSquare, LayoutGrid, ClipboardList, ShieldCheck, LogOut, Settings, CalendarDays, Video,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../context/AuthContext'
@@ -88,7 +88,18 @@ export default function Sidebar() {
         {/* GENERAL */}
         <section>
           <p className="px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">General</p>
-          <NavItem icon={<CheckSquare size={15} />} label="My Tasks" />
+          <NavItem
+            icon={<CheckSquare size={15} />}
+            label="My Tasks"
+            active={location.pathname === '/my-tasks'}
+            onClick={() => navigate('/my-tasks')}
+          />
+          <NavItem
+            icon={<ClipboardList size={15} />}
+            label="All Tasks"
+            active={location.pathname === '/all-tasks'}
+            onClick={() => navigate('/all-tasks')}
+          />
           <NavItem
             icon={<LayoutGrid size={15} />}
             label="All Programs"
@@ -192,7 +203,7 @@ export default function Sidebar() {
             <p className="text-sm font-medium text-gray-200 truncate">{profile.name}</p>
             <p className="text-[10px] text-gray-500 truncate capitalize">{profile.role.toLowerCase().replace('_', ' ')}</p>
           </div>
-          <button className="text-gray-500 hover:text-gray-300 transition-colors" title="Settings">
+          <button onClick={() => navigate('/profile')} className="text-gray-500 hover:text-gray-300 transition-colors" title="Profile & Settings">
             <Settings size={14} />
           </button>
           <button onClick={handleLogout} className="text-gray-500 hover:text-red-400 transition-colors" title="Sign out">

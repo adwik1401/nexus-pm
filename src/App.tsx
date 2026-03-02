@@ -12,6 +12,11 @@ import RegisterPage from './pages/RegisterPage'
 import AllProjectsPage from './pages/AllProjectsPage'
 import AdminPage from './pages/AdminPage'
 import MeetingsPage from './pages/MeetingsPage'
+import MyTasksPage from './pages/MyTasksPage'
+import AllTasksPage from './pages/AllTasksPage'
+import ProfilePage from './pages/ProfilePage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 
 // ── Protected wrapper ────────────────────────────────────────────────────────
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -61,6 +66,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </div>
+      <TaskModal />
       <MeetingModal />
     </AppProvider>
   )
@@ -73,8 +79,10 @@ export default function App() {
       <AuthProvider>
         <Routes>
           {/* Public */}
-          <Route path="/login"    element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/login"           element={<LoginPage />} />
+          <Route path="/register"        element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password"  element={<ResetPasswordPage />} />
 
           {/* Protected */}
           <Route path="/" element={
@@ -108,6 +116,38 @@ export default function App() {
             <ProtectedRoute>
               <AppShell>
                 <MeetingsPage />
+              </AppShell>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/my-tasks" element={
+            <ProtectedRoute>
+              <AppShell>
+                <MyTasksPage />
+              </AppShell>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/all-tasks" element={
+            <ProtectedRoute>
+              <AppShell>
+                <AllTasksPage />
+              </AppShell>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <AppShell>
+                <ProfilePage />
+              </AppShell>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/profile/:id" element={
+            <ProtectedRoute>
+              <AppShell>
+                <ProfilePage />
               </AppShell>
             </ProtectedRoute>
           } />

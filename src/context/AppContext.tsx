@@ -1,12 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { Program, Profile, Task, TaskStatus, Vertical, ViewMode, ExternalStakeholder, Meeting } from '../types'
+import type { AppNotification, Program, Profile, Task, TaskStatus, Vertical, ViewMode, ExternalStakeholder, Meeting } from '../types'
 import { listPrograms } from '../services/projects'
 import { listUsers } from '../services/users'
 import { listVerticals } from '../services/verticals'
 import { listTasks, updateTask as svcUpdateTask, createTask as svcCreateTask, logActivity } from '../services/tasks'
 import { listStakeholders } from '../services/stakeholders'
 import { listMeetings } from '../services/meetings'
+import { listNotifications, createNotification } from '../services/notifications'
+import { supabase } from '../lib/supabase'
 
 interface AppContextValue {
   programs: Program[]
@@ -14,6 +16,11 @@ interface AppContextValue {
   verticals: Vertical[]
   stakeholders: ExternalStakeholder[]
   meetings: Meeting[]
+  notifications: AppNotification[]
+  unreadCount: number
+  showNotifications: boolean
+  setShowNotifications: (v: boolean) => void
+  refreshNotifications: () => Promise<void>
   activeProgramId: string | null
   setActiveProgramId: (id: string) => void
   activeProgram: Program | null
@@ -54,6 +61,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null)
   const [newMeetingDate, setNewMeetingDate] = useState<string | null>(null)
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
+  const [notifications, setNotifications] = useState<AppNotification[]>([])
+  const [showNotifications, setShowNotifications] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const refreshPrograms = useCallback(async () => {
@@ -80,6 +89,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try { setMeetings(await listMeetings()) } catch { /* ignore */ }
   }, [])
 
+  const refreshNotifications = useCallback(async () => {
+    try { setNotifications(await listNotifications()) } catch { /* ignore */ }
+  }, [])
+
   const refreshTasks = useCallback(async () => {
     if (!activeProgramId) return
     try {
@@ -99,7 +112,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
       refreshStakeholders(),
       refreshMeetings(),
     ]).finally(() => setLoading(false))
+
+    refreshNotifications()
+
+    // Realtime: refresh notifications when a new one arrives for current user
+    const sub = supabase
+      .channel('notifications')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
+        refreshNotifications()
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(sub) }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Meeting reminders: on mount, after meetings load, create reminder notifs for today/tomorrow
+  useEffect(() => {
+    if (meetings.length === 0) return
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const today = new Date()
+      const todayStr = today.toISOString().split('T')[0]
+      const tomorrow = new Date(today)
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      const tomorrowStr = tomorrow.toISOString().split('T')[0]
+
+      for (const m of meetings) {
+        if (m.date !== todayStr && m.date !== tomorrowStr) continue
+        const isAttendee = (m.member_attendees ?? []).some(a => a.id === user.id)
+        if (!isAttendee) continue
+        const label = m.date === todayStr ? 'Today' : 'Tomorrow'
+        await createNotification({
+          user_id: user.id,
+          type: 'meeting_reminder',
+          title: `${label}: ${m.title}`,
+          body: `${m.time_from.slice(0, 5)} – ${m.time_to.slice(0, 5)}`,
+          entity_id: m.id,
+          entity_type: 'meeting',
+        })
+      }
+      refreshNotifications()
+    })()
+  }, [meetings]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { refreshTasks() }, [refreshTasks])
 
@@ -127,13 +182,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const moveTask = useCallback(async (taskId: string, newStatus: TaskStatus) => {
     let oldStatus: TaskStatus | undefined
+    let taskAssignees: Profile[] = []
     setTasks(prev => {
-      oldStatus = prev.find(t => t.id === taskId)?.status
+      const t = prev.find(t => t.id === taskId)
+      oldStatus = t?.status
+      taskAssignees = t?.assignees ?? []
       return prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t)
     })
     await svcUpdateTask(taskId, { status: newStatus })
     if (oldStatus && oldStatus !== newStatus) {
       logActivity(taskId, 'status_changed', { from: oldStatus, to: newStatus })
+      // Notify assignees (fire-and-forget)
+      const { data: { user } } = await supabase.auth.getUser()
+      const statusLabel: Record<TaskStatus, string> = { TODO: 'To Do', IN_PROGRESS: 'In Progress', DONE: 'Done' }
+      for (const assignee of taskAssignees) {
+        if (user && assignee.id === user.id) continue
+        createNotification({
+          user_id: assignee.id,
+          type: 'task_moved',
+          title: 'Task status updated',
+          body: `Moved to ${statusLabel[newStatus]}`,
+          entity_id: taskId,
+          entity_type: 'task',
+        })
+      }
     }
   }, [])
 
@@ -143,9 +215,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return newTask
   }, [])
 
+  const unreadCount = notifications.filter(n => !n.read).length
+
   return (
     <AppContext.Provider value={{
       programs, users, verticals, stakeholders, meetings,
+      notifications, unreadCount, showNotifications, setShowNotifications, refreshNotifications,
       activeProgramId, setActiveProgramId, activeProgram,
       tasks, viewMode, setViewMode,
       selectedTask, selectTask,

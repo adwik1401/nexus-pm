@@ -15,6 +15,7 @@ import {
   addSubTask, toggleSubTask, listComments,
   logActivity, getActivityLogs,
 } from '../../services/tasks'
+import { createNotification } from '../../services/notifications'
 
 export default function TaskModal() {
   const { selectedTask, selectTask, refreshTasks, users, verticals, activeProgramId } = useApp()
@@ -70,9 +71,22 @@ export default function TaskModal() {
   }
 
   const handleAssigneesChange = async (selected: Profile[]) => {
+    const prevIds = new Set((task.assignees ?? []).map(u => u.id))
     await setTaskAssignees(task.id, selected.map(u => u.id))
     setTask(t => t ? { ...t, assignees: selected } : t)
     refreshTasks()
+    // Notify newly added assignees
+    for (const u of selected) {
+      if (prevIds.has(u.id) || u.id === profile?.id) continue
+      createNotification({
+        user_id: u.id,
+        type: 'task_assigned',
+        title: 'You were assigned a task',
+        body: task.title,
+        entity_id: task.id,
+        entity_type: 'task',
+      })
+    }
   }
 
   const handleVerticalsChange = async (selected: Vertical[]) => {

@@ -19,6 +19,8 @@ export default function RegisterPage() {
   const [showPw, setShowPw] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [sentEmail, setSentEmail] = useState('')
 
   useEffect(() => {
     listVerticals().then(setVerticals).catch(() => {})
@@ -50,7 +52,7 @@ export default function RegisterPage() {
     setLoading(true)
     try {
       // 1. Register (creates auth.users + triggers profile creation)
-      const { user } = await register({
+      const { user, session } = await register({
         email: form.email,
         password: form.password,
         name: form.name,
@@ -59,18 +61,14 @@ export default function RegisterPage() {
         profileImageUrl: null,
       })
 
-      // 2. Upload avatar if provided (requires session)
-      let imageUrl: string | null = null
-      if (avatarFile && user) {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
-          imageUrl = await uploadAvatar(avatarFile, user.id)
-          // Update profile with image
-          await supabase.from('profiles').update({ profile_image: imageUrl }).eq('id', user.id)
-        }
+      // 2. Upload avatar only if session exists (email confirmation disabled)
+      if (avatarFile && user && session) {
+        const imageUrl = await uploadAvatar(avatarFile, user.id)
+        await supabase.from('profiles').update({ profile_image: imageUrl }).eq('id', user.id)
       }
 
-      navigate('/')
+      setSentEmail(form.email)
+      setSent(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')
     } finally {
@@ -90,6 +88,26 @@ export default function RegisterPage() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
+          {sent ? (
+            <div className="text-center py-4">
+              <div className="text-4xl mb-4">✉️</div>
+              <h1 className="text-xl font-bold text-gray-900 mb-2">Check your inbox</h1>
+              <p className="text-sm text-gray-500 mb-1">
+                A verification link has been sent to
+              </p>
+              <p className="text-sm font-semibold text-indigo-600 mb-6">{sentEmail}</p>
+              <p className="text-sm text-gray-400 mb-8">
+                Click the link in your email to activate your account, then sign in.
+              </p>
+              <button
+                onClick={() => navigate('/login')}
+                className="text-sm text-indigo-600 font-semibold hover:underline"
+              >
+                ← Back to login
+              </button>
+            </div>
+          ) : (
+          <>
           <h1 className="text-xl font-bold text-gray-900 mb-1">Create your account</h1>
           <p className="text-sm text-gray-500 mb-6">Only <span className="font-semibold">@qcin.org</span> email addresses are accepted.</p>
 
@@ -166,6 +184,8 @@ export default function RegisterPage() {
             Already have an account?{' '}
             <Link to="/login" className="text-indigo-600 font-semibold hover:underline">Sign In</Link>
           </p>
+          </>
+          )}
         </div>
       </div>
     </div>

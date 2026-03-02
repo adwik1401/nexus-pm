@@ -6,11 +6,12 @@ export async function listTasks(filters: {
   projectId?: string
   assigneeId?: string
   verticalId?: string
-}): Promise<Task[]> {
+} = {}): Promise<Task[]> {
   let query = supabase
     .from('tasks')
     .select(`
       *,
+      program:projects(id, name, color, icon_type),
       assignees:task_assignees(user:profiles(id, name, profile_image, role, vertical_id)),
       verticals:task_verticals(vertical:verticals(id, name, color)),
       tags(*),

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import type { Meeting, MeetingMode } from '../types'
+import { createNotification } from './notifications'
 
 function normalizeMeeting(m: Record<string, unknown>): Meeting {
   return {
@@ -66,13 +67,38 @@ export async function deleteMeeting(id: string): Promise<void> {
   if (error) throw error
 }
 
-export async function setMeetingMemberAttendees(meetingId: string, userIds: string[]): Promise<void> {
+export async function setMeetingMemberAttendees(
+  meetingId: string,
+  userIds: string[],
+  meetingTitle?: string,
+): Promise<void> {
+  // Get previous attendees to find newly added ones
+  const { data: prevRows } = await supabase
+    .from('meeting_member_attendees')
+    .select('user_id')
+    .eq('meeting_id', meetingId)
+  const prevIds = new Set((prevRows ?? []).map((r: { user_id: string }) => r.user_id))
+
   await supabase.from('meeting_member_attendees').delete().eq('meeting_id', meetingId)
   if (userIds.length === 0) return
   const { error } = await supabase
     .from('meeting_member_attendees')
     .insert(userIds.map(user_id => ({ meeting_id: meetingId, user_id })))
   if (error) throw error
+
+  // Notify newly added attendees
+  const { data: { user } } = await supabase.auth.getUser()
+  for (const uid of userIds) {
+    if (prevIds.has(uid) || uid === user?.id) continue
+    createNotification({
+      user_id: uid,
+      type: 'meeting_added',
+      title: 'You were added to a meeting',
+      body: meetingTitle ?? 'New meeting',
+      entity_id: meetingId,
+      entity_type: 'meeting',
+    })
+  }
 }
 
 export async function setMeetingStakeholderAttendees(meetingId: string, stakeholderIds: string[]): Promise<void> {

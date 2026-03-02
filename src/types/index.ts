@@ -52,6 +52,7 @@ export interface Task {
   created_at: string
   updated_at: string
   // joined
+  program?: Pick<Program, 'id' | 'name' | 'color' | 'icon_type'>
   assignees?: Profile[]
   verticals?: Vertical[]
   tags?: Tag[]
@@ -125,6 +126,36 @@ export interface ExternalStakeholder {
   name: string
   email: string | null
   contact_no: string | null
+  created_at: string
+}
+
+// ── Notifications ────────────────────────────────────────────────────────────
+export interface AppNotification {
+  id: string
+  user_id: string
+  type: 'task_assigned' | 'task_moved' | 'meeting_added' | 'meeting_reminder'
+  title: string
+  body: string
+  entity_id: string | null
+  entity_type: 'task' | 'meeting' | null
+  read: boolean
+  created_at: string
+}
+
+// ── KRAs & KPIs ──────────────────────────────────────────────────────────────
+export interface KRA {
+  id: string
+  user_id: string
+  title: string
+  description: string
+  created_at: string
+}
+
+export interface KPI {
+  id: string
+  user_id: string
+  title: string
+  description: string
   created_at: string
 }
 

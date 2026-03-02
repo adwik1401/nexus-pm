@@ -114,7 +114,7 @@ export default function MeetingModal() {
       }
 
       await Promise.all([
-        setMeetingMemberAttendees(meetingId, [...memberIds]),
+        setMeetingMemberAttendees(meetingId, [...memberIds], title.trim()),
         setMeetingStakeholderAttendees(meetingId, [...stakeholderIds]),
       ])
 
