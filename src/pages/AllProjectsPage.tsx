@@ -128,13 +128,13 @@ export default function AllProgramsPage() {
   return (
     <div className="flex-1 overflow-auto px-8 py-7 bg-gray-50">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">All Programs</h1>
-        <p className="text-sm text-gray-500 mt-0.5">{programs.length} program{programs.length !== 1 ? 's' : ''} in your workspace</p>
+        <h1 className="text-2xl font-bold text-gray-900">All Projects</h1>
+        <p className="text-sm text-gray-500 mt-0.5">{programs.length} project{programs.length !== 1 ? 's' : ''} in your workspace</p>
       </div>
 
       {programs.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-          <p className="text-lg font-medium">No programs yet</p>
+          <p className="text-lg font-medium">No projects yet</p>
           <p className="text-sm mt-1">Ask an admin to create one</p>
         </div>
       ) : (

@@ -29,12 +29,14 @@ export default function TaskModal() {
 
   // Sync local copy when selected task changes
   useEffect(() => {
+    let cancelled = false
     setTask(selectedTask)
     setActivityLogs([])
     if (selectedTask) {
-      listComments(selectedTask.id).then(setComments).catch(() => {})
-      getActivityLogs(selectedTask.id).then(setActivityLogs).catch(() => {})
+      listComments(selectedTask.id).then(d => { if (!cancelled) setComments(d) }).catch(() => {})
+      getActivityLogs(selectedTask.id).then(d => { if (!cancelled) setActivityLogs(d) }).catch(() => {})
     }
+    return () => { cancelled = true }
   }, [selectedTask])
 
   if (!task) return null

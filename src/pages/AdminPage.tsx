@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Trash2, Check, X, Pencil, ChevronDown, ChevronRight } from 'lucide-react'
 import { useApp } from '../context/AppContext'
 import type { ExternalStakeholder, IconType, KPI, KRA, Profile, Role } from '../types'
@@ -177,7 +177,8 @@ function ObjectiveList({ userId, type }: { userId: string; type: 'kra' | 'kpi' }
     setLoaded(true)
   }
 
-  if (!loaded) { load(); return <p className="text-xs text-gray-400 py-1">Loading…</p> }
+  useEffect(() => { load() }, [userId, type]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!loaded) return <p className="text-xs text-gray-400 py-1">Loading…</p>
 
   const handleAdd = async () => {
     if (!addTitle.trim()) return
@@ -383,7 +384,7 @@ function ProgramsTab() {
   }
 
   const handleDelete = async (programId: string, programName: string) => {
-    if (!confirm(`Delete program "${programName}"? This will also delete all its tasks.`)) return
+    if (!confirm(`Delete project "${programName}"? This will also delete all its tasks.`)) return
     await deleteProgram(programId)
     await refreshPrograms()
   }
@@ -451,12 +452,12 @@ function ProgramsTab() {
     <div className="space-y-6">
       {/* Create program */}
       <div className="bg-white rounded-xl border border-gray-100 p-5">
-        <h3 className="text-sm font-bold text-gray-700 mb-3">Create Program</h3>
+        <h3 className="text-sm font-bold text-gray-700 mb-3">Create Project</h3>
         <div className="flex gap-3 items-end flex-wrap">
           <div className="flex-1 min-w-40">
             <label className="admin-label">Name</label>
             <input type="text" value={name} onChange={e => setName(e.target.value)}
-              placeholder="Program name" className={inputCls} onKeyDown={e => e.key === 'Enter' && handleCreate()} />
+              placeholder="Project name" className={inputCls} onKeyDown={e => e.key === 'Enter' && handleCreate()} />
           </div>
           <div>
             <label className="admin-label">Icon</label>
@@ -487,12 +488,12 @@ function ProgramsTab() {
 
       {/* Add members panel */}
       <div className="bg-white rounded-xl border border-gray-100 p-5">
-        <h3 className="text-sm font-bold text-gray-700 mb-3">Add Members to Program</h3>
+        <h3 className="text-sm font-bold text-gray-700 mb-3">Add Members to Project</h3>
 
         <div className="mb-4">
-          <label className="admin-label">Program</label>
+          <label className="admin-label">Project</label>
           <select value={addProgramId} onChange={e => setAddProgramId(e.target.value)} className={inputCls}>
-            <option value="">Select program…</option>
+            <option value="">Select project…</option>
             {programs.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
@@ -872,7 +873,7 @@ export default function AdminPage() {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'verticals',    label: 'Verticals' },
     { id: 'users',        label: 'Users' },
-    { id: 'programs',     label: 'Programs' },
+    { id: 'programs',     label: 'Projects' },
     { id: 'stakeholders', label: 'Stakeholders' },
   ]
 
@@ -880,7 +881,7 @@ export default function AdminPage() {
     <div className="flex-1 overflow-auto px-8 py-7 bg-gray-50">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Manage verticals, team members, programs, and stakeholders</p>
+        <p className="text-sm text-gray-500 mt-0.5">Manage verticals, team members, projects, and stakeholders</p>
       </div>
 
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6">

@@ -162,7 +162,7 @@ export default function MyTasksPage() {
         <CheckSquare size={18} className="text-indigo-500" />
         <div>
           <h1 className="text-lg font-bold text-gray-900">My Tasks</h1>
-          <p className="text-xs text-gray-400">{tasks.length} task{tasks.length !== 1 ? 's' : ''} assigned to you across all programs</p>
+          <p className="text-xs text-gray-400">{tasks.length} task{tasks.length !== 1 ? 's' : ''} assigned to you across all projects</p>
         </div>
       </div>
 

@@ -48,6 +48,8 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null)
 
+const NOTIFICATIONS_CHANNEL = 'app-notifications'
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [programs, setPrograms] = useState<Program[]>([])
   const [users, setUsers] = useState<Profile[]>([])
@@ -70,27 +72,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const data = await listPrograms()
       setPrograms(data)
       setActiveProgramIdState(prev => data.find(m => m.id === prev) ? prev : (data[0]?.id ?? null))
-    } catch { /* not logged in yet */ }
+    } catch (err) { console.error('[AppContext] refreshPrograms:', err) }
   }, [])
 
   const refreshUsers = useCallback(async () => {
-    try { setUsers(await listUsers()) } catch { /* ignore */ }
+    try { setUsers(await listUsers()) } catch (err) { console.error('[AppContext] refreshUsers:', err) }
   }, [])
 
   const refreshVerticals = useCallback(async () => {
-    try { setVerticals(await listVerticals()) } catch { /* ignore */ }
+    try { setVerticals(await listVerticals()) } catch (err) { console.error('[AppContext] refreshVerticals:', err) }
   }, [])
 
   const refreshStakeholders = useCallback(async () => {
-    try { setStakeholders(await listStakeholders()) } catch { /* ignore */ }
+    try { setStakeholders(await listStakeholders()) } catch (err) { console.error('[AppContext] refreshStakeholders:', err) }
   }, [])
 
   const refreshMeetings = useCallback(async () => {
-    try { setMeetings(await listMeetings()) } catch { /* ignore */ }
+    try { setMeetings(await listMeetings()) } catch (err) { console.error('[AppContext] refreshMeetings:', err) }
   }, [])
 
   const refreshNotifications = useCallback(async () => {
-    try { setNotifications(await listNotifications()) } catch { /* ignore */ }
+    try { setNotifications(await listNotifications()) } catch (err) { console.error('[AppContext] refreshNotifications:', err) }
   }, [])
 
   const refreshTasks = useCallback(async () => {
@@ -101,7 +103,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         assigneeId: filterMemberId ?? undefined,
       })
       setTasks(data)
-    } catch { /* ignore */ }
+    } catch (err) { console.error('[AppContext] refreshTasks:', err) }
   }, [activeProgramId, filterMemberId])
 
   useEffect(() => {
@@ -117,7 +119,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Realtime: refresh notifications when a new one arrives for current user
     const sub = supabase
-      .channel('notifications')
+      .channel(NOTIFICATIONS_CHANNEL)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
         refreshNotifications()
       })

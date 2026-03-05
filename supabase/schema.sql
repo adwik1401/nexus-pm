@@ -206,18 +206,28 @@ create policy "pm_write"  on public.project_members for all to authenticated
   using (public.current_user_role() = 'ADMIN')
   with check (public.current_user_role() = 'ADMIN');
 
--- TASKS (project members read/write)
-create policy "tasks_select" on public.tasks for select to authenticated using (true);
-create policy "tasks_write"  on public.tasks for all to authenticated using (true) with check (true);
+-- TASKS: all authenticated read + insert/update; delete restricted to admin/lead
+create policy "tasks_select"        on public.tasks for select to authenticated using (true);
+create policy "tasks_insert_update" on public.tasks for insert to authenticated with check (true);
+create policy "tasks_update"        on public.tasks for update to authenticated using (true) with check (true);
+create policy "tasks_delete"        on public.tasks for delete to authenticated
+  using (public.current_user_role() in ('ADMIN','VERTICAL_LEAD'));
 
--- CASCADE tables (tags, context_blocks, sub_tasks, task_assignees, task_verticals, comments, gantt_tasks)
+-- CASCADE tables: open read/write for collaborative workflow; comments restrict delete to own or admin
 create policy "tags_all"           on public.tags           for all to authenticated using (true) with check (true);
 create policy "context_blocks_all" on public.context_blocks for all to authenticated using (true) with check (true);
 create policy "sub_tasks_all"      on public.sub_tasks      for all to authenticated using (true) with check (true);
 create policy "task_assignees_all" on public.task_assignees for all to authenticated using (true) with check (true);
 create policy "task_verticals_all" on public.task_verticals for all to authenticated using (true) with check (true);
-create policy "comments_all"       on public.comments       for all to authenticated using (true) with check (true);
 create policy "gantt_tasks_all"    on public.gantt_tasks    for all to authenticated using (true) with check (true);
+-- Comments: anyone can read/add; update/delete restricted to own comment or admin
+create policy "comments_select" on public.comments for select to authenticated using (true);
+create policy "comments_insert" on public.comments for insert to authenticated with check (user_id = auth.uid());
+create policy "comments_update" on public.comments for update to authenticated
+  using (user_id = auth.uid() or public.current_user_role() = 'ADMIN')
+  with check (user_id = auth.uid() or public.current_user_role() = 'ADMIN');
+create policy "comments_delete" on public.comments for delete to authenticated
+  using (user_id = auth.uid() or public.current_user_role() = 'ADMIN');
 
 -- ============================================================
 -- SEED DATA (initial verticals + projects + tasks)
@@ -261,7 +271,9 @@ create table if not exists public.external_stakeholders (
 );
 alter table public.external_stakeholders enable row level security;
 create policy "stakeholders_select" on public.external_stakeholders for select to authenticated using (true);
-create policy "stakeholders_write"  on public.external_stakeholders for all    to authenticated using (true) with check (true);
+create policy "stakeholders_write"  on public.external_stakeholders for all    to authenticated
+  using (public.current_user_role() = 'ADMIN')
+  with check (public.current_user_role() = 'ADMIN');
 
 -- 16. MEETINGS
 create table if not exists public.meetings (
@@ -278,7 +290,9 @@ create table if not exists public.meetings (
 );
 alter table public.meetings enable row level security;
 create policy "meetings_select" on public.meetings for select to authenticated using (true);
-create policy "meetings_write"  on public.meetings for all    to authenticated using (true) with check (true);
+create policy "meetings_write"  on public.meetings for all    to authenticated
+  using (public.current_user_role() in ('ADMIN','VERTICAL_LEAD'))
+  with check (public.current_user_role() in ('ADMIN','VERTICAL_LEAD'));
 
 -- 17. MEETING MEMBER ATTENDEES (team members)
 create table if not exists public.meeting_member_attendees (
@@ -287,7 +301,9 @@ create table if not exists public.meeting_member_attendees (
   primary key (meeting_id, user_id)
 );
 alter table public.meeting_member_attendees enable row level security;
-create policy "meeting_members_all" on public.meeting_member_attendees for all to authenticated using (true) with check (true);
+create policy "meeting_members_all" on public.meeting_member_attendees for all to authenticated
+  using (public.current_user_role() in ('ADMIN','VERTICAL_LEAD'))
+  with check (public.current_user_role() in ('ADMIN','VERTICAL_LEAD'));
 
 -- 18. MEETING STAKEHOLDER ATTENDEES
 create table if not exists public.meeting_stakeholder_attendees (
@@ -296,7 +312,9 @@ create table if not exists public.meeting_stakeholder_attendees (
   primary key (meeting_id, stakeholder_id)
 );
 alter table public.meeting_stakeholder_attendees enable row level security;
-create policy "meeting_stk_all" on public.meeting_stakeholder_attendees for all to authenticated using (true) with check (true);
+create policy "meeting_stk_all" on public.meeting_stakeholder_attendees for all to authenticated
+  using (public.current_user_role() in ('ADMIN','VERTICAL_LEAD'))
+  with check (public.current_user_role() in ('ADMIN','VERTICAL_LEAD'));
 
 -- 19. ACTIVITY LOGS (code references this table but it was never created)
 create table if not exists public.activity_logs (

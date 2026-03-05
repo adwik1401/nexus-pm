@@ -16,7 +16,7 @@ type ResultSection =
   | { type: 'user'; items: Profile[] }
 
 const TYPE_STYLES = {
-  program: { color: 'bg-indigo-100 text-indigo-700', label: 'Program' },
+  program: { color: 'bg-indigo-100 text-indigo-700', label: 'Project' },
   task:    { color: 'bg-blue-100 text-blue-700',    label: 'Task' },
   meeting: { color: 'bg-teal-100 text-teal-700',   label: 'Meeting' },
   user:    { color: 'bg-purple-100 text-purple-700', label: 'User' },
@@ -64,6 +64,7 @@ export default function SearchModal({ onClose }: SearchModalProps) {
         setTaskResults(normalised)
       }
     }, 200)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query])
 
   const q = query.toLowerCase().trim()
@@ -116,7 +117,7 @@ export default function SearchModal({ onClose }: SearchModalProps) {
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search tasks, programs, meetings, users…"
+            placeholder="Search tasks, projects, meetings, users…"
             className="flex-1 text-sm text-gray-800 placeholder-gray-400 outline-none"
           />
           {query && (

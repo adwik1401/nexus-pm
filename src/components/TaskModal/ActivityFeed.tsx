@@ -11,8 +11,11 @@ const STATUS_LABEL: Record<string, string> = {
 function actionText(log: ActivityLog): string {
   const m = log.meta
   switch (log.action) {
-    case 'status_changed':
-      return `changed status from "${STATUS_LABEL[m.from as string] ?? m.from}" to "${STATUS_LABEL[m.to as string] ?? m.to}"`
+    case 'status_changed': {
+      const from = typeof m.from === 'string' ? m.from : String(m.from ?? '')
+      const to   = typeof m.to   === 'string' ? m.to   : String(m.to   ?? '')
+      return `changed status from "${STATUS_LABEL[from] ?? from}" to "${STATUS_LABEL[to] ?? to}"`
+    }
     case 'comment_added':
       return 'added a comment'
     case 'context_block_added':

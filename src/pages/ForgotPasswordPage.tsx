@@ -15,7 +15,7 @@ export default function ForgotPasswordPage() {
     setLoading(true)
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://nexus-pm-tool.netlify.app/reset-password',
+        redirectTo: `${import.meta.env.VITE_APP_URL ?? 'http://localhost:5173'}/reset-password`,
       })
       if (error) throw error
       setSent(true)

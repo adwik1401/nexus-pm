@@ -27,10 +27,12 @@ export async function listPrograms(): Promise<Program[]> {
   }) as Program[]
 }
 
+const DEFAULT_PROGRAM_COLOR = '#6366f1'
+
 export async function createProgram(name: string, iconType: IconType, deadline: string | null, color?: string): Promise<Program> {
   const { data, error } = await supabase
     .from('projects')
-    .insert({ name, icon_type: iconType, deadline: deadline || null, color: color ?? '#6366f1' })
+    .insert({ name, icon_type: iconType, deadline: deadline || null, color: color ?? DEFAULT_PROGRAM_COLOR })
     .select()
     .single()
 

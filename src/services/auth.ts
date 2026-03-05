@@ -42,6 +42,10 @@ export async function logout() {
 
 export async function uploadAvatar(file: File, userId: string): Promise<string> {
   const ext = file.name.split('.').pop()
+  const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp']
+  if (!ext || !ALLOWED_EXTENSIONS.includes(ext.toLowerCase())) {
+    throw new Error('Only jpg, jpeg, png, gif, and webp files are allowed.')
+  }
   const path = `${userId}/avatar.${ext}`
 
   const { error } = await supabase.storage

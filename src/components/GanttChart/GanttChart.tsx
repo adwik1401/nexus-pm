@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Plus, Flag, Clock } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
@@ -31,11 +31,6 @@ export default function CalendarView() {
     meetings, selectMeeting, openNewMeeting,
   } = useApp()
 
-  const programColorById = programs.reduce<Record<string, string>>((acc, p) => {
-    acc[p.id] = p.color
-    return acc
-  }, {})
-
   const today = new Date()
 
   const [viewYear,  setViewYear]  = useState(today.getFullYear())
@@ -45,25 +40,31 @@ export default function CalendarView() {
   const startOffset  = getStartOffset(viewYear, viewMonth)
   const totalCells   = Math.ceil((startOffset + daysInMonth) / 7) * 7
 
-  // Group tasks by due_date "YYYY-MM-DD"
-  const tasksByDate = tasks.reduce<Record<string, Task[]>>((acc, t) => {
-    if (!t.due_date) return acc
-    acc[t.due_date] = acc[t.due_date] ? [...acc[t.due_date], t] : [t]
-    return acc
-  }, {})
+  const { programColorById, tasksByDate, programsByDate, meetingsByDate } = useMemo(() => {
+    const programColorById = programs.reduce<Record<string, string>>((acc, p) => {
+      acc[p.id] = p.color
+      return acc
+    }, {})
 
-  // Group program deadlines by date
-  const programsByDate = programs.reduce<Record<string, Program[]>>((acc, p) => {
-    if (!p.deadline) return acc
-    acc[p.deadline] = acc[p.deadline] ? [...acc[p.deadline], p] : [p]
-    return acc
-  }, {})
+    const tasksByDate = tasks.reduce<Record<string, Task[]>>((acc, t) => {
+      if (!t.due_date) return acc
+      acc[t.due_date] = acc[t.due_date] ? [...acc[t.due_date], t] : [t]
+      return acc
+    }, {})
 
-  // Group meetings by date
-  const meetingsByDate = meetings.reduce<Record<string, Meeting[]>>((acc, m) => {
-    acc[m.date] = acc[m.date] ? [...acc[m.date], m] : [m]
-    return acc
-  }, {})
+    const programsByDate = programs.reduce<Record<string, Program[]>>((acc, p) => {
+      if (!p.deadline) return acc
+      acc[p.deadline] = acc[p.deadline] ? [...acc[p.deadline], p] : [p]
+      return acc
+    }, {})
+
+    const meetingsByDate = meetings.reduce<Record<string, Meeting[]>>((acc, m) => {
+      acc[m.date] = acc[m.date] ? [...acc[m.date], m] : [m]
+      return acc
+    }, {})
+
+    return { programColorById, tasksByDate, programsByDate, meetingsByDate }
+  }, [tasks, programs, meetings])
 
   const prevMonth = () => {
     if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1) }
@@ -202,7 +203,7 @@ export default function CalendarView() {
                             setActiveProgramId(p.id)
                             navigate('/')
                           }}
-                          title={`Program deadline: ${p.name}`}
+                          title={`Project deadline: ${p.name}`}
                           className="w-full text-left text-[11px] font-medium px-1.5 py-0.5 rounded truncate flex items-center gap-1 transition-opacity hover:opacity-75"
                           style={{ backgroundColor: p.color + '28', color: p.color }}
                         >

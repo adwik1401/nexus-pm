@@ -91,7 +91,8 @@ export async function updateTask(id: string, updates: {
 
 // ── Assignees ───────────────────────────────────────────────────────────────
 export async function setTaskAssignees(taskId: string, userIds: string[]): Promise<void> {
-  await supabase.from('task_assignees').delete().eq('task_id', taskId)
+  const { error: delErr } = await supabase.from('task_assignees').delete().eq('task_id', taskId)
+  if (delErr) throw delErr
   if (userIds.length > 0) {
     const { error } = await supabase
       .from('task_assignees')
@@ -102,7 +103,8 @@ export async function setTaskAssignees(taskId: string, userIds: string[]): Promi
 
 // ── Task Verticals ──────────────────────────────────────────────────────────
 export async function setTaskVerticals(taskId: string, verticalIds: string[]): Promise<void> {
-  await supabase.from('task_verticals').delete().eq('task_id', taskId)
+  const { error: delErr } = await supabase.from('task_verticals').delete().eq('task_id', taskId)
+  if (delErr) throw delErr
   if (verticalIds.length > 0) {
     const { error } = await supabase
       .from('task_verticals')

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Grid3X3, Layers, Server, DollarSign, Code2,
@@ -57,11 +58,12 @@ export default function Sidebar() {
   const isOnBoard    = location.pathname === '/'
   const isOnMeetings = location.pathname === '/meetings'
 
-  const visibleUsers = (isVerticalLead && !isAdmin && profile?.vertical_id)
-    ? users.filter(u => u.vertical_id === profile.vertical_id)
-    : users
-  const displayedUsers = visibleUsers.slice(0, 25)
-  const extraCount = visibleUsers.length - 25
+  const { displayedUsers, extraCount } = useMemo(() => {
+    const visible = (isVerticalLead && !isAdmin && profile?.vertical_id)
+      ? users.filter(u => u.vertical_id === profile.vertical_id)
+      : users
+    return { displayedUsers: visible.slice(0, 25), extraCount: visible.length - 25 }
+  }, [users, isVerticalLead, isAdmin, profile?.vertical_id])
 
   const handleMemberClick = (userId: string) => {
     if (!isVerticalLead) return
@@ -102,7 +104,7 @@ export default function Sidebar() {
           />
           <NavItem
             icon={<LayoutGrid size={15} />}
-            label="All Programs"
+            label="All Projects"
             active={isOnPrograms}
             onClick={() => navigate('/projects')}
           />
@@ -130,7 +132,7 @@ export default function Sidebar() {
 
         {/* PROGRAMS */}
         <section>
-          <p className="px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Programs</p>
+          <p className="px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Projects</p>
           {programs.map(program => {
             const Icon = PROGRAM_ICONS[program.icon_type] ?? Layers
             const isActive = program.id === activeProgramId && isOnBoard
