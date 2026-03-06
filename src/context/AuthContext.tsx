@@ -3,7 +3,8 @@ import type { ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Profile, WorkspaceMembership } from '../types'
-import { login as svcLogin, logout as svcLogout } from '../services/auth'
+import { login as svcLogin, logout as svcLogout, loginWithGoogle as svcLoginWithGoogle, OAUTH_INVITE_KEY } from '../services/auth'
+import { acceptInvite } from '../services/invites'
 
 interface AuthContextValue {
   session: Session | null
@@ -14,6 +15,9 @@ interface AuthContextValue {
   // For workspace-specific role checks use isAdmin/isViewer/canWrite from AppContext
   isAdmin: boolean
   login: (email: string, password: string) => Promise<void>
+  // Initiates Google OAuth. Pass inviteToken if the user came from an invite link —
+  // it will be preserved across the OAuth redirect and auto-accepted on return.
+  loginWithGoogle: (inviteToken?: string) => Promise<void>
   logout: () => Promise<void>
   refreshMemberships: () => Promise<void>
 }
@@ -42,10 +46,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       else setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
       setSession(s)
-      if (s?.user) fetchProfileAndMemberships(s.user.id)
-      else { setProfile(null); setMemberships([]) }
+      if (s?.user) {
+        // For Google OAuth sign-ins, check localStorage for a pending invite token.
+        // The token is written by loginWithGoogle() before the OAuth redirect so it
+        // survives the round-trip. We accept it here before fetching memberships so
+        // the user's workspace is visible immediately after sign-in.
+        if (event === 'SIGNED_IN' && s.user.app_metadata?.provider === 'google') {
+          const pendingToken = localStorage.getItem(OAUTH_INVITE_KEY)
+          if (pendingToken) {
+            localStorage.removeItem(OAUTH_INVITE_KEY) // clear first — prevents double-accept on re-render
+            try {
+              await acceptInvite(pendingToken)
+            } catch (err) {
+              // Non-fatal: user may already be a member, or token expired.
+              // They can still create/join a workspace manually.
+              console.error('[AuthContext] acceptInvite (OAuth):', err)
+            }
+          }
+        }
+        await fetchProfileAndMemberships(s.user.id)
+      } else {
+        setProfile(null)
+        setMemberships([])
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -53,6 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     await svcLogin(email, password)
+  }
+
+  const loginWithGoogle = async (inviteToken?: string) => {
+    await svcLoginWithGoogle(inviteToken)
   }
 
   const logout = async () => {
@@ -74,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       isAdmin: memberships.some(m => m.role === 'ADMIN'),
       login,
+      loginWithGoogle,
       logout,
       refreshMemberships,
     }}>

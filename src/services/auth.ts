@@ -1,5 +1,9 @@
 import { supabase } from '../lib/supabase'
 
+// localStorage key used to carry an invite token across the Google OAuth redirect.
+// Written before the redirect; read + cleared in AuthContext after sign-in.
+export const OAUTH_INVITE_KEY = 'nexus_oauth_invite_token'
+
 export async function register(opts: {
   email: string
   password: string
@@ -37,6 +41,24 @@ export async function login(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw error
   return data
+}
+
+// Initiates Google OAuth sign-in via Supabase.
+// If the user arrived from an invite link, pass the invite token so it
+// survives the OAuth redirect (stored in localStorage, accepted in AuthContext).
+export async function loginWithGoogle(inviteToken?: string): Promise<void> {
+  if (inviteToken) {
+    localStorage.setItem(OAUTH_INVITE_KEY, inviteToken)
+  }
+  const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      // Supabase will append the session tokens and redirect here after auth
+      redirectTo: `${appUrl}/`,
+    },
+  })
+  if (error) throw error
 }
 
 export async function logout() {

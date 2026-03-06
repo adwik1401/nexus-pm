@@ -39,6 +39,17 @@ export async function revokeInvite(inviteId: string): Promise<void> {
   if (error) throw error
 }
 
+// Accept a workspace invite for the currently signed-in user.
+// Used by OAuth users who bypass the DB trigger (no metadata to carry invite info).
+// Returns { workspace_id, role } on success, or null if the token is invalid/expired.
+export async function acceptInvite(token: string): Promise<{ workspace_id: string; role: string } | null> {
+  const { data, error } = await supabase.rpc('accept_invite', { p_token: token })
+  if (error) throw error
+  // The RPC returns { error } if the invite is invalid
+  if (data && (data as { error?: string }).error) return null
+  return data as { workspace_id: string; role: string }
+}
+
 // Public call — no auth required.
 // Returns invite details if token is valid (unused, not expired), null otherwise.
 export async function validateInviteToken(token: string): Promise<InviteValidation | null> {

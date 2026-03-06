@@ -4,6 +4,99 @@ All notable changes to Nexus PM are documented here.
 
 ---
 
+## [1.4.0] — 2026-03-06
+
+### Added
+
+**Google OAuth Login**
+- "Continue with Google" button on both Login and Register pages
+- New Google OAuth users get a profile created automatically (name + avatar pulled from Google account)
+- Invite flow preserved across OAuth redirect: invite token stored in `localStorage` before redirect, auto-accepted in `AuthContext` after sign-in
+- Existing email/password accounts are automatically linked if the Google email matches
+
+**Sidebar Quick Invite**
+- `+` button next to the MEMBERS heading in the sidebar (Admin only)
+- Opens an inline form: email input + role dropdown (Vertical Lead / Member / Viewer) + Send Invite button
+- On success, invite link is copied to clipboard with a green confirmation; form resets automatically
+- `×` button closes the form; `Escape` key also dismisses it
+
+### Database
+New migration (`supabase/migrations/006_oauth_support.sql`):
+- Updated `handle_new_user()` trigger — adds **Flow C** (OAuth / social sign-in): creates profile from Google metadata without requiring workspace metadata; no exception thrown
+- New `accept_invite(p_token text)` SECURITY DEFINER RPC — called client-side for OAuth users to accept a workspace invite after sign-in
+
+---
+
+## [1.3.0] — 2026-03-06
+
+### Added
+
+**Multi-Workspace Architecture**
+- Users can now belong to multiple workspaces (Slack/Notion model) — each workspace is a fully isolated data silo
+- Workspace switcher in the sidebar header: lists all joined workspaces with a checkmark on the active one
+- "Create new workspace" inline form in the switcher (email domain no longer restricted)
+- Active workspace persisted to `localStorage` so switching survives page refresh
+- Workspace selection page (`/select-workspace`): shown after login when a user belongs to more than one workspace
+
+**Invite System**
+- Admin can generate token-based invite links from Admin panel → Invites tab
+- Invite form: email + role (Viewer / Member / Vertical Lead / Admin) → generates a link copied to clipboard
+- Invites table: shows status (Pending / Used / Expired), expiry date, and a Revoke button
+- Public invite landing page (`/invite/:token`): shows workspace name + assigned role with CTAs to create account or sign in
+- Registration page now supports two flows:
+  - **Flow A** — create a new workspace (workspace name field replaces the old org field)
+  - **Flow B** — accept an invite (workspace name + role pre-filled and locked from the invite token)
+- `@qcin.org` email restriction removed; any email address can register
+
+**Viewer Role**
+- New role: `VIEWER` — read-only access to the entire workspace
+- Viewers can see all tasks, projects, meetings, members, and profiles, but cannot create, edit, comment, or delete anything
+- UI gating: Add Task button hidden, drag-and-drop disabled, comment box hidden, inline editing locked, subtask checkboxes disabled
+
+**Admin Panel — Invites Tab**
+- 5th tab added to Admin panel: Invites
+- Create and manage workspace invites from a central table
+
+### Changed
+- Role is now **per-workspace** (stored in `workspace_members`) — `profiles.role` column removed
+- Registration no longer assigns a vertical; Admin assigns verticals post-join
+- `isAdmin` / `isVerticalLead` / `canWrite` derived from the active workspace membership, not a global profile field
+
+### Database
+New tables (run `supabase/migrations/001–005` in Supabase SQL Editor):
+- `workspaces` — workspace records with `name`, `slug`, `plan` (free / pro / enterprise)
+- `workspace_members` — junction table: user ↔ workspace with per-workspace role
+- `workspace_invites` — token-based invite records with expiry and used-at tracking
+
+New DB functions:
+- `get_my_workspace_ids()` — returns all workspace IDs for the current user (used in all RLS policies)
+- `get_my_role_in_workspace(p_workspace_id)` — returns current user's role in a given workspace
+- `can_write_in_workspace(p_workspace_id)` — returns false for VIEWER, true for all other roles
+- `validate_invite_token(p_token)` — public SECURITY DEFINER RPC; validates invite token without requiring auth
+- `create_workspace_for_user(p_name, p_slug)` — SECURITY DEFINER RPC used by the workspace creation form to bypass RLS on the `workspaces` table insert
+
+All tenant-scoped tables gained a `workspace_id` FK column; all RLS policies rewritten to use the new workspace-scoped helper functions.
+
+---
+
+## [1.2.0] — 2026-03-05
+
+### Changed
+- UI label "Program" / "Programs" renamed to "Project" / "Projects" everywhere in the interface (TypeScript types, variables, and DB table names unchanged)
+
+### Security
+- RLS policy on `comments` INSERT now enforces `user_id = auth.uid()` in the `WITH CHECK` clause — prevents identity spoofing in comments
+- Task DELETE restricted to `ADMIN` and `VERTICAL_LEAD` roles
+- Comment UPDATE / DELETE restricted to own comment or ADMIN
+- External stakeholder write access restricted to ADMIN only
+- Avatar upload enforces an extension whitelist: `jpg`, `jpeg`, `png`, `gif`, `webp`
+- Full security audit documented in `ISSUES.md`
+
+### Fixed
+- Sidebar project color bar was not rendering on first load in some browsers
+
+---
+
 ## [1.1.0] — 2026-03-02
 
 ### Added

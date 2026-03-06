@@ -3,13 +3,14 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Grid3X3, Layers, Server, DollarSign, Code2,
   CheckSquare, LayoutGrid, ClipboardList, ShieldCheck, LogOut, Settings, CalendarDays, Video,
-  Plus, X, ChevronDown, Building2,
+  Plus, X, ChevronDown, Building2, Check,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../context/AuthContext'
 import { createProgram } from '../../services/projects'
 import { createWorkspace } from '../../services/workspaces'
-import type { Profile } from '../../types'
+import { createInvite } from '../../services/invites'
+import type { Profile, Role } from '../../types'
 
 const PROGRAM_ICONS = {
   layers: Layers,
@@ -75,6 +76,14 @@ export default function Sidebar() {
   const [creatingWs, setCreatingWs] = useState(false)
   const [wsError, setWsError] = useState('')
 
+  // Quick-invite from Members section (ADMIN only)
+  const [showInvite, setShowInvite] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteRole, setInviteRole] = useState<Role>('MEMBER')
+  const [inviting, setInviting] = useState(false)
+  const [inviteError, setInviteError] = useState('')
+  const [inviteSent, setInviteSent] = useState(false)
+
   const handleCreateProject = async () => {
     if (!newName.trim() || creating || !activeWorkspaceId) return
     setCreating(true)
@@ -110,6 +119,29 @@ export default function Sidebar() {
       setWsError((err as { message?: string })?.message || 'Failed to create workspace')
     } finally {
       setCreatingWs(false)
+    }
+  }
+
+  const handleSendInvite = async () => {
+    if (!inviteEmail.trim() || inviting || !activeWorkspaceId) return
+    setInviting(true)
+    setInviteError('')
+    setInviteSent(false)
+    try {
+      const invite = await createInvite({ workspaceId: activeWorkspaceId, email: inviteEmail.trim(), role: inviteRole })
+      // Build invite URL the same way AdminPage does — prefer VITE_APP_URL, fall back to current origin
+      const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin
+      const link = `${appUrl}/invite/${invite.token}`
+      await navigator.clipboard.writeText(link)
+      setInviteSent(true)
+      setInviteEmail('')
+      // Auto-dismiss success message after 3 s
+      setTimeout(() => setInviteSent(false), 3000)
+    } catch (err) {
+      console.error('[Sidebar] sendInvite:', err)
+      setInviteError((err as { message?: string })?.message || 'Failed to send invite')
+    } finally {
+      setInviting(false)
     }
   }
 
@@ -345,12 +377,62 @@ export default function Sidebar() {
         <section>
           <div className="px-2 flex items-center justify-between mb-2">
             <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Members</p>
-            {filterMemberId && (
-              <button onClick={() => setFilterMemberId(null)} className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold">
-                Clear
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {filterMemberId && (
+                <button onClick={() => setFilterMemberId(null)} className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold">
+                  Clear
+                </button>
+              )}
+              {/* Invite button — ADMIN only */}
+              {isAdmin && (
+                <button
+                  onClick={() => { setShowInvite(v => !v); setInviteError(''); setInviteSent(false) }}
+                  className="text-gray-500 hover:text-gray-300 transition-colors"
+                  title="Invite member"
+                >
+                  {showInvite ? <X size={13} /> : <Plus size={13} />}
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Inline invite form — shown when showInvite is true */}
+          {showInvite && isAdmin && (
+            <div className="mb-3 px-1">
+              <input
+                autoFocus
+                type="email"
+                value={inviteEmail}
+                onChange={e => { setInviteEmail(e.target.value); setInviteError('') }}
+                onKeyDown={e => { if (e.key === 'Enter') handleSendInvite(); if (e.key === 'Escape') setShowInvite(false) }}
+                placeholder="Email address…"
+                className="w-full bg-white/5 text-gray-200 text-xs rounded-md px-2 py-1.5 outline-none border border-white/10 focus:border-indigo-500 placeholder-gray-600 mb-1.5"
+              />
+              <select
+                value={inviteRole}
+                onChange={e => setInviteRole(e.target.value as Role)}
+                className="w-full bg-[#1a1f2e] text-gray-300 text-xs rounded-md px-2 py-1.5 outline-none border border-white/10 focus:border-indigo-500 mb-1.5"
+              >
+                <option value="VERTICAL_LEAD">Vertical Lead</option>
+                <option value="MEMBER">Member</option>
+                <option value="VIEWER">Viewer</option>
+              </select>
+              {inviteError && <p className="text-[10px] text-red-400 px-0.5 mb-1">{inviteError}</p>}
+              {inviteSent && (
+                <p className="text-[10px] text-green-400 px-0.5 mb-1 flex items-center gap-1">
+                  <Check size={10} /> Link copied to clipboard!
+                </p>
+              )}
+              <button
+                onClick={handleSendInvite}
+                disabled={inviting || !inviteEmail.trim()}
+                className="w-full text-xs py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-medium transition-colors"
+              >
+                {inviting ? 'Sending…' : 'Send Invite'}
+              </button>
+            </div>
+          )}
+
           <div className="px-2 flex flex-wrap gap-1.5">
             {displayedUsers.map(user => (
               <Avatar
