@@ -1,11 +1,14 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Grid3X3, Layers, Server, DollarSign, Code2,
   CheckSquare, LayoutGrid, ClipboardList, ShieldCheck, LogOut, Settings, CalendarDays, Video,
+  Plus, X, ChevronDown, Building2,
 } from 'lucide-react'
 import { useApp } from '../../context/AppContext'
 import { useAuth } from '../../context/AuthContext'
+import { createProgram } from '../../services/projects'
+import { createWorkspace } from '../../services/workspaces'
 import type { Profile } from '../../types'
 
 const PROGRAM_ICONS = {
@@ -50,8 +53,65 @@ export function Avatar({ user, size = 'sm', onClick, highlighted }: {
 export default function Sidebar() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { programs, users, activeProgramId, setActiveProgramId, filterMemberId, setFilterMemberId, viewMode, setViewMode } = useApp()
-  const { profile, isAdmin, isVerticalLead, logout } = useAuth()
+  const {
+    programs, users, activeProgramId, setActiveProgramId,
+    filterMemberId, setFilterMemberId, viewMode, setViewMode, refreshPrograms,
+    isAdmin, isVerticalLead, activeWorkspace, activeWorkspaceId, switchWorkspace,
+    myRole,
+  } = useApp()
+  const { profile, memberships, logout, refreshMemberships } = useAuth()
+
+  const [showCreate, setShowCreate] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newColor, setNewColor] = useState('#6366f1')
+  const [newDeadline, setNewDeadline] = useState('')
+  const [creating, setCreating] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
+
+  // Workspace switcher
+  const [showWsSwitcher, setShowWsSwitcher] = useState(false)
+  const [showNewWsForm, setShowNewWsForm] = useState(false)
+  const [newWsName, setNewWsName] = useState('')
+  const [creatingWs, setCreatingWs] = useState(false)
+  const [wsError, setWsError] = useState('')
+
+  const handleCreateProject = async () => {
+    if (!newName.trim() || creating || !activeWorkspaceId) return
+    setCreating(true)
+    try {
+      const p = await createProgram(newName.trim(), 'layers', newDeadline || null, activeWorkspaceId, newColor)
+      await refreshPrograms()
+      setActiveProgramId(p.id)
+      navigate('/')
+      setNewName('')
+      setNewColor('#6366f1')
+      setNewDeadline('')
+      setShowCreate(false)
+    } catch (err) {
+      console.error('[Sidebar] createProject:', err)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleCreateWorkspace = async () => {
+    if (!newWsName.trim() || creatingWs) return
+    setCreatingWs(true)
+    setWsError('')
+    try {
+      const { workspace } = await createWorkspace(newWsName.trim())
+      await refreshMemberships()
+      switchWorkspace(workspace.id)
+      setNewWsName('')
+      setShowNewWsForm(false)
+      setShowWsSwitcher(false)
+    } catch (err) {
+      console.error('[Sidebar] createWorkspace:', err)
+      setWsError((err as { message?: string })?.message || 'Failed to create workspace')
+    } finally {
+      setCreatingWs(false)
+    }
+  }
 
   const isOnPrograms = location.pathname === '/projects'
   const isOnAdmin    = location.pathname === '/admin'
@@ -78,12 +138,81 @@ export default function Sidebar() {
 
   return (
     <aside className="w-[270px] flex-shrink-0 flex flex-col h-full" style={{ backgroundColor: '#0F1117' }}>
-      {/* Logo */}
-      <div className="px-5 py-5 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center shadow-sm">
-          <Grid3X3 size={16} className="text-white" />
-        </div>
-        <span className="text-white font-bold text-xl tracking-tight">Nexus</span>
+      {/* Workspace Switcher */}
+      <div className="px-3 pt-4 pb-2 relative">
+        <button
+          onClick={() => { setShowWsSwitcher(v => !v); setShowNewWsForm(false) }}
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors group"
+        >
+          <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+            <Grid3X3 size={14} className="text-white" />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="text-sm font-semibold text-gray-200 truncate leading-tight">
+              {activeWorkspace?.name ?? 'Select Workspace'}
+            </p>
+            <p className="text-[10px] text-gray-500 leading-tight">Workspace</p>
+          </div>
+          <ChevronDown size={13} className={`text-gray-500 transition-transform flex-shrink-0 ${showWsSwitcher ? 'rotate-180' : ''}`} />
+        </button>
+
+        {/* Switcher dropdown */}
+        {showWsSwitcher && (
+          <div className="absolute left-3 right-3 top-full mt-1 bg-[#1a1f2e] border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+            <div className="max-h-56 overflow-y-auto py-1">
+              {memberships.map(m => {
+                const ws = m.workspace
+                if (!ws) return null
+                return (
+                  <button
+                    key={m.workspace_id}
+                    onClick={() => { switchWorkspace(m.workspace_id); setShowWsSwitcher(false) }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left hover:bg-white/5 transition-colors ${m.workspace_id === activeWorkspaceId ? 'text-indigo-300' : 'text-gray-300'}`}
+                  >
+                    <div className="w-6 h-6 rounded-md bg-indigo-600/30 flex items-center justify-center flex-shrink-0">
+                      <Building2 size={12} className="text-indigo-400" />
+                    </div>
+                    <span className="text-sm font-medium truncate flex-1">{ws.name}</span>
+                    {m.workspace_id === activeWorkspaceId && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 flex-shrink-0" />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            <div className="border-t border-white/10 p-2">
+              {showNewWsForm ? (
+                <div className="space-y-1.5">
+                  <input
+                    autoFocus
+                    type="text"
+                    value={newWsName}
+                    onChange={e => { setNewWsName(e.target.value); setWsError('') }}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCreateWorkspace(); if (e.key === 'Escape') { setShowNewWsForm(false); setWsError('') } }}
+                    placeholder="Workspace name…"
+                    className="w-full bg-white/5 text-gray-200 text-xs rounded-md px-2 py-1.5 outline-none border border-white/10 focus:border-indigo-500 placeholder-gray-600"
+                  />
+                  {wsError && <p className="text-[10px] text-red-400 px-0.5">{wsError}</p>}
+                  <button
+                    onClick={handleCreateWorkspace}
+                    disabled={creatingWs || !newWsName.trim()}
+                    className="w-full text-xs py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-medium transition-colors"
+                  >
+                    {creatingWs ? 'Creating…' : 'Create'}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowNewWsForm(true)}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors rounded-md hover:bg-white/5"
+                >
+                  <Plus size={12} />
+                  Create new workspace
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 space-y-6 pb-4">
@@ -132,7 +261,56 @@ export default function Sidebar() {
 
         {/* PROGRAMS */}
         <section>
-          <p className="px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-1">Projects</p>
+          <div className="px-2 flex items-center justify-between mb-1">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Projects</p>
+            {isAdmin && (
+              <button
+                onClick={() => { setShowCreate(v => !v); setTimeout(() => nameInputRef.current?.focus(), 50) }}
+                className="text-gray-500 hover:text-gray-300 transition-colors"
+                title="New project"
+              >
+                {showCreate ? <X size={13} /> : <Plus size={13} />}
+              </button>
+            )}
+          </div>
+
+          {showCreate && (
+            <div className="mb-2 px-1">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <input
+                  type="color"
+                  value={newColor}
+                  onChange={e => setNewColor(e.target.value)}
+                  className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent flex-shrink-0"
+                  title="Pick color"
+                />
+                <input
+                  ref={nameInputRef}
+                  type="text"
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleCreateProject(); if (e.key === 'Escape') setShowCreate(false) }}
+                  placeholder="Project name…"
+                  className="flex-1 bg-white/5 text-gray-200 text-xs rounded-md px-2 py-1.5 outline-none border border-white/10 focus:border-indigo-500 placeholder-gray-600"
+                />
+              </div>
+              <input
+                type="date"
+                value={newDeadline}
+                onChange={e => setNewDeadline(e.target.value)}
+                className="w-full mb-1.5 bg-white/5 text-gray-400 text-xs rounded-md px-2 py-1.5 outline-none border border-white/10 focus:border-indigo-500"
+                title="Deadline (optional)"
+              />
+              <button
+                onClick={handleCreateProject}
+                disabled={creating || !newName.trim()}
+                className="w-full text-xs py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-medium transition-colors"
+              >
+                {creating ? 'Creating…' : 'Create'}
+              </button>
+            </div>
+          )}
+
           {programs.map(program => {
             const Icon = PROGRAM_ICONS[program.icon_type] ?? Layers
             const isActive = program.id === activeProgramId && isOnBoard
@@ -203,7 +381,7 @@ export default function Sidebar() {
           <Avatar user={profile} size="md" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-200 truncate">{profile.name}</p>
-            <p className="text-[10px] text-gray-500 truncate capitalize">{profile.role.toLowerCase().replace('_', ' ')}</p>
+            <p className="text-[10px] text-gray-500 truncate capitalize">{myRole?.toLowerCase().replace('_', ' ') ?? 'member'}</p>
           </div>
           <button onClick={() => navigate('/profile')} className="text-gray-500 hover:text-gray-300 transition-colors" title="Profile & Settings">
             <Settings size={14} />

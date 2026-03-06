@@ -11,15 +11,16 @@ function normalizeMeeting(m: Record<string, unknown>): Meeting {
   } as Meeting
 }
 
-export async function listMeetings(): Promise<Meeting[]> {
+export async function listMeetings(workspaceId: string): Promise<Meeting[]> {
   const { data, error } = await supabase
     .from('meetings')
     .select(`
       *,
       vertical:verticals(id, name, color),
-      member_attendees:meeting_member_attendees(user:profiles(id, name, profile_image, role, vertical_id)),
+      member_attendees:meeting_member_attendees(user:profiles(id, name, profile_image, vertical_id)),
       stakeholder_attendees:meeting_stakeholder_attendees(stakeholder:external_stakeholders(*))
     `)
+    .eq('workspace_id', workspaceId)
     .order('date')
     .order('time_from')
   if (error) throw error
@@ -35,10 +36,12 @@ export async function createMeeting(opts: {
   link: string | null
   location: string | null
   vertical_id: string | null
+  workspaceId: string
 }): Promise<Meeting> {
+  const { workspaceId, ...rest } = opts
   const { data, error } = await supabase
     .from('meetings')
-    .insert(opts)
+    .insert({ ...rest, workspace_id: workspaceId })
     .select()
     .single()
   if (error) throw error

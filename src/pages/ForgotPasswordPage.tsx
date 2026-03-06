@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
           <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
             <Grid3X3 size={20} className="text-white" />
           </div>
-          <span className="text-white font-bold text-2xl tracking-tight">Nexus</span>
+          <span className="text-white font-bold text-2xl tracking-tight">Planzo</span>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">

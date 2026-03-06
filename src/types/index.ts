@@ -1,8 +1,49 @@
 // ── Roles & enums ──────────────────────────────────────────────────────────
-export type Role = 'ADMIN' | 'VERTICAL_LEAD' | 'MEMBER'
+export type Role = 'ADMIN' | 'VERTICAL_LEAD' | 'MEMBER' | 'VIEWER'
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE'
 export type ViewMode = 'kanban' | 'gantt'
 export type IconType = 'layers' | 'server' | 'dollar' | 'code'
+
+// ── Workspace ─────────────────────────────────────────────────────────────────
+export type OrgPlan = 'free' | 'pro' | 'enterprise'
+
+export interface Workspace {
+  id: string
+  name: string
+  slug: string
+  plan: OrgPlan
+  created_at: string
+}
+
+export interface WorkspaceMembership {
+  workspace_id: string
+  user_id: string
+  role: Role
+  joined_at: string
+  workspace?: Workspace
+}
+
+export interface WorkspaceInvite {
+  id: string
+  workspace_id: string
+  email: string
+  token: string
+  role: Role
+  invited_by: string | null
+  used_at: string | null
+  expires_at: string
+  created_at: string
+}
+
+export interface InviteValidation {
+  invite_id: string
+  workspace_id: string
+  workspace_name: string
+  workspace_slug: string
+  email: string
+  role: string
+  expires_at: string
+}
 
 // ── Supabase-backed entities ────────────────────────────────────────────────
 export interface Profile {
@@ -11,7 +52,7 @@ export interface Profile {
   email?: string        // from auth.users, joined in queries
   profile_image: string | null
   dob: string | null    // ISO date "YYYY-MM-DD"
-  role: Role
+  role?: Role           // populated from workspace_members when queried in workspace context
   vertical_id: string | null
   vertical?: Vertical   // joined
   created_at: string
@@ -47,8 +88,10 @@ export interface Task {
   title: string
   description: string | null
   status: TaskStatus
+  start_date: string | null  // "YYYY-MM-DD"
   due_date: string | null    // "YYYY-MM-DD"
   project_id: string
+  workspace_id: string
   created_at: string
   updated_at: string
   // joined

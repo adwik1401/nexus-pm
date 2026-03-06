@@ -23,7 +23,7 @@ export default function Header() {
   return (
     <>
       <header className="flex items-center px-6 py-0 bg-white border-b border-gray-100 flex-shrink-0 h-14 relative">
-        <h1 className="text-lg font-bold text-gray-900 mr-6">{activeProgram?.name ?? 'Nexus'}</h1>
+        <h1 className="text-lg font-bold text-gray-900 mr-6">{activeProgram?.name ?? 'Planzo'}</h1>
 
         <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-100">
           <ViewToggleBtn mode="kanban" current={viewMode} icon={<LayoutGrid size={14} />}

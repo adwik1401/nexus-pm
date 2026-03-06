@@ -5,13 +5,14 @@ export async function register(opts: {
   password: string
   name: string
   dob: string
-  verticalId: string | null
   profileImageUrl: string | null
+  // Flow A — new workspace:
+  workspaceName?: string
+  // Flow B — joining via invite:
+  workspaceId?: string
+  inviteToken?: string
+  role?: string
 }) {
-  if (!opts.email.toLowerCase().endsWith('@qcin.org')) {
-    throw new Error('Only @qcin.org email addresses are allowed to register.')
-  }
-
   const { data, error } = await supabase.auth.signUp({
     email: opts.email,
     password: opts.password,
@@ -19,8 +20,11 @@ export async function register(opts: {
       data: {
         name: opts.name,
         dob: opts.dob,
-        vertical_id: opts.verticalId ?? '',
         profile_image: opts.profileImageUrl ?? '',
+        workspace_name: opts.workspaceName ?? '',
+        workspace_id: opts.workspaceId ?? '',
+        role: opts.role ?? '',
+        invite_token: opts.inviteToken ?? '',
       },
     },
   })

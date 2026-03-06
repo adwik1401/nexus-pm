@@ -18,7 +18,7 @@ import {
 import { createNotification } from '../../services/notifications'
 
 export default function TaskModal() {
-  const { selectedTask, selectTask, refreshTasks, users, verticals, activeProgramId } = useApp()
+  const { selectedTask, selectTask, refreshTasks, users, verticals, activeProgramId, canWrite } = useApp()
   const { profile } = useAuth()
 
   const [task, setTask] = useState(selectedTask)
@@ -157,10 +157,11 @@ export default function TaskModal() {
               </div>
               <div className="flex-1 min-w-0">
                 <input
-                  className="text-xl font-bold text-gray-900 leading-tight w-full outline-none bg-transparent hover:bg-gray-50 rounded px-1 -ml-1 focus:bg-gray-50 transition-colors"
+                  className={`text-xl font-bold text-gray-900 leading-tight w-full outline-none bg-transparent rounded px-1 -ml-1 transition-colors ${canWrite ? 'hover:bg-gray-50 focus:bg-gray-50' : 'cursor-default'}`}
                   value={task.title}
-                  onChange={e => setTask(t => t ? { ...t, title: e.target.value } : t)}
-                  onBlur={e => save({ title: e.target.value })}
+                  readOnly={!canWrite}
+                  onChange={e => canWrite && setTask(t => t ? { ...t, title: e.target.value } : t)}
+                  onBlur={e => canWrite && save({ title: e.target.value })}
                 />
                 <div className="flex items-center gap-1.5 mt-1 ml-1">
                   <span className="text-xs text-gray-400">In program</span>
@@ -187,9 +188,10 @@ export default function TaskModal() {
                   className="w-full text-sm text-gray-700 bg-gray-50 rounded-xl p-4 border border-gray-100 outline-none resize-none leading-relaxed focus:border-indigo-200 focus:bg-white transition-all"
                   rows={4}
                   value={task.description ?? ''}
-                  onChange={e => setTask(t => t ? { ...t, description: e.target.value } : t)}
-                  onBlur={e => save({ description: e.target.value })}
-                  placeholder="Add a description…"
+                  readOnly={!canWrite}
+                  onChange={e => canWrite && setTask(t => t ? { ...t, description: e.target.value } : t)}
+                  onBlur={e => canWrite && save({ description: e.target.value })}
+                  placeholder={canWrite ? 'Add a description…' : ''}
                 />
               </section>
 
@@ -197,10 +199,12 @@ export default function TaskModal() {
               <section>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="label-title">Context Blocks</h3>
-                  <button onClick={handleAddBlock}
-                    className="flex items-center gap-1 text-xs font-semibold text-indigo-500 hover:text-indigo-700 transition-colors">
-                    <Plus size={13} /> Add Block
-                  </button>
+                  {canWrite && (
+                    <button onClick={handleAddBlock}
+                      className="flex items-center gap-1 text-xs font-semibold text-indigo-500 hover:text-indigo-700 transition-colors">
+                      <Plus size={13} /> Add Block
+                    </button>
+                  )}
                 </div>
                 <div className="space-y-3">
                   {(task.context_blocks ?? []).map((block: CBType) => (
@@ -219,27 +223,29 @@ export default function TaskModal() {
                 <h3 className="label-title mb-3">Sub-Tasks</h3>
                 <div className="divide-y divide-gray-50 mb-3">
                   {(task.sub_tasks ?? []).map((st: SubTask) => (
-                    <SubTaskItem key={st.id} subTask={st} onChange={handleToggleSubTask} />
+                    <SubTaskItem key={st.id} subTask={st} onChange={handleToggleSubTask} canWrite={canWrite} />
                   ))}
                 </div>
-                {/* Add sub-task input */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newSubTask}
-                    onChange={e => setNewSubTask(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleAddSubTask()}
-                    placeholder="Add a subtask…"
-                    className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-300 transition-colors"
-                  />
-                  <button
-                    onClick={handleAddSubTask}
-                    disabled={!newSubTask.trim()}
-                    className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
-                  >
-                    Add
-                  </button>
-                </div>
+                {/* Add sub-task input — hidden for viewers */}
+                {canWrite && (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newSubTask}
+                      onChange={e => setNewSubTask(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddSubTask()}
+                      placeholder="Add a subtask…"
+                      className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-300 transition-colors"
+                    />
+                    <button
+                      onClick={handleAddSubTask}
+                      disabled={!newSubTask.trim()}
+                      className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      Add
+                    </button>
+                  </div>
+                )}
               </section>
 
               {/* Comments */}
@@ -249,6 +255,7 @@ export default function TaskModal() {
                   comments={comments}
                   onCommentAdded={c => setComments(prev => [...prev, c])}
                   onLogged={log => setActivityLogs(prev => [log, ...prev])}
+                  canWrite={canWrite}
                 />
               </section>
 
@@ -266,15 +273,34 @@ export default function TaskModal() {
               label="Assignees"
               options={projectMembers}
               selected={task.assignees ?? []}
-              onChange={handleAssigneesChange}
+              onChange={canWrite ? handleAssigneesChange : () => {}}
             />
 
             {/* Verticals */}
             <VerticalPicker
               verticals={verticals}
               selected={task.verticals ?? []}
-              onChange={handleVerticalsChange}
+              onChange={canWrite ? handleVerticalsChange : () => {}}
             />
+
+            {/* Start Date */}
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                <CalendarDays size={11} className="inline mr-1 -mt-0.5" />
+                Start Date
+              </p>
+              <input
+                type="date"
+                value={task.start_date ?? ''}
+                disabled={!canWrite}
+                onChange={e => {
+                  const v = e.target.value || null
+                  setTask(t => t ? { ...t, start_date: v } : t)
+                  save({ start_date: v })
+                }}
+                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 outline-none focus:border-indigo-300 transition-colors bg-white disabled:bg-gray-50 disabled:text-gray-400"
+              />
+            </div>
 
             {/* Due Date */}
             <div>
@@ -285,12 +311,13 @@ export default function TaskModal() {
               <input
                 type="date"
                 value={task.due_date ?? ''}
+                disabled={!canWrite}
                 onChange={e => {
                   const v = e.target.value || null
                   setTask(t => t ? { ...t, due_date: v } : t)
                   save({ due_date: v })
                 }}
-                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 outline-none focus:border-indigo-300 transition-colors bg-white"
+                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 outline-none focus:border-indigo-300 transition-colors bg-white disabled:bg-gray-50 disabled:text-gray-400"
               />
             </div>
 
@@ -299,6 +326,7 @@ export default function TaskModal() {
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Status</p>
               <select
                 value={task.status}
+                disabled={!canWrite}
                 onChange={e => {
                   const fromStatus = task.status
                   const v = e.target.value as typeof task.status
@@ -306,7 +334,7 @@ export default function TaskModal() {
                   save({ status: v })
                   pushLog('status_changed', { from: fromStatus, to: v })
                 }}
-                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 outline-none focus:border-indigo-300 bg-white transition-colors"
+                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm text-gray-700 outline-none focus:border-indigo-300 bg-white transition-colors disabled:bg-gray-50 disabled:text-gray-400"
               >
                 <option value="TODO">To Do</option>
                 <option value="IN_PROGRESS">In Progress</option>

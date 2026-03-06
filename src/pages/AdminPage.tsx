@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Check, X, Pencil, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Check, X, Pencil, ChevronDown, ChevronRight, Copy, Clock, Mail } from 'lucide-react'
 import { useApp } from '../context/AppContext'
-import type { ExternalStakeholder, IconType, KPI, KRA, Profile, Role } from '../types'
+import type { ExternalStakeholder, IconType, KPI, KRA, Profile, Role, WorkspaceInvite } from '../types'
 import {
   createVertical, updateVertical, deleteVertical, setVerticalLead,
 } from '../services/verticals'
@@ -17,10 +17,11 @@ import {
   listKRAs, createKRA, updateKRA, deleteKRA,
   listKPIs, createKPI, updateKPI, deleteKPI,
 } from '../services/kras'
+import { listInvites, createInvite, revokeInvite } from '../services/invites'
 import { Avatar } from '../components/Sidebar/Sidebar'
 import { Layers, Server, DollarSign, Code2 } from 'lucide-react'
 
-type Tab = 'verticals' | 'users' | 'programs' | 'stakeholders'
+type Tab = 'verticals' | 'users' | 'programs' | 'stakeholders' | 'invites'
 
 const ICON_OPTIONS: { value: IconType; label: string; Icon: React.ElementType }[] = [
   { value: 'layers', label: 'Layers',  Icon: Layers },
@@ -31,7 +32,7 @@ const ICON_OPTIONS: { value: IconType; label: string; Icon: React.ElementType }[
 
 // ── Verticals tab ────────────────────────────────────────────────────────────
 function VerticalsTab() {
-  const { verticals, users, refreshVerticals, refreshUsers } = useApp()
+  const { verticals, users, refreshVerticals, refreshUsers, activeWorkspaceId } = useApp()
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState('#6366f1')
   const [editId, setEditId] = useState<string | null>(null)
@@ -39,10 +40,10 @@ function VerticalsTab() {
   const [loading, setLoading] = useState(false)
 
   const handleCreate = async () => {
-    if (!newName.trim()) return
+    if (!newName.trim() || !activeWorkspaceId) return
     setLoading(true)
     try {
-      await createVertical(newName.trim(), newColor)
+      await createVertical(newName.trim(), newColor, activeWorkspaceId)
       setNewName(''); setNewColor('#6366f1')
       await refreshVerticals()
     } finally { setLoading(false) }
@@ -64,7 +65,7 @@ function VerticalsTab() {
   const handleSetLead = async (verticalId: string, userId: string) => {
     await setVerticalLead(verticalId, userId || null)
     await refreshVerticals()
-    if (userId) await updateUserRole(userId, 'VERTICAL_LEAD')
+    if (userId && activeWorkspaceId) await updateUserRole(userId, 'VERTICAL_LEAD', activeWorkspaceId)
     await refreshUsers()
   }
 
@@ -162,6 +163,7 @@ function VerticalsTab() {
 
 // ── Objective sub-list (KRAs or KPIs) ─────────────────────────────────────────
 function ObjectiveList({ userId, type }: { userId: string; type: 'kra' | 'kpi' }) {
+  const { activeWorkspaceId } = useApp()
   const [items, setItems] = useState<KRA[] | KPI[]>([])
   const [loaded, setLoaded] = useState(false)
   const [addTitle, setAddTitle] = useState('')
@@ -181,10 +183,10 @@ function ObjectiveList({ userId, type }: { userId: string; type: 'kra' | 'kpi' }
   if (!loaded) return <p className="text-xs text-gray-400 py-1">Loading…</p>
 
   const handleAdd = async () => {
-    if (!addTitle.trim()) return
+    if (!addTitle.trim() || !activeWorkspaceId) return
     const item = type === 'kra'
-      ? await createKRA(userId, addTitle.trim(), addDesc.trim())
-      : await createKPI(userId, addTitle.trim(), addDesc.trim())
+      ? await createKRA(userId, addTitle.trim(), addDesc.trim(), activeWorkspaceId)
+      : await createKPI(userId, addTitle.trim(), addDesc.trim(), activeWorkspaceId)
     setItems(prev => [...prev, item] as KRA[] | KPI[])
     setAddTitle(''); setAddDesc(''); setAdding(false)
   }
@@ -281,11 +283,12 @@ function ObjectiveList({ userId, type }: { userId: string; type: 'kra' | 'kpi' }
 
 // ── Users tab ─────────────────────────────────────────────────────────────────
 function UsersTab() {
-  const { users, verticals, refreshUsers } = useApp()
+  const { users, verticals, refreshUsers, activeWorkspaceId } = useApp()
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const handleRoleChange = async (userId: string, role: Role) => {
-    await updateUserRole(userId, role)
+    if (!activeWorkspaceId) return
+    await updateUserRole(userId, role, activeWorkspaceId)
     await refreshUsers()
   }
 
@@ -309,13 +312,14 @@ function UsersTab() {
             <Avatar user={u} size="sm" />
             <div className="flex-1 min-w-0">
               <p className="font-medium text-gray-800 text-sm">{u.name}</p>
-              <p className="text-xs text-gray-400 capitalize">{u.role.toLowerCase().replace('_', ' ')}</p>
+              <p className="text-xs text-gray-400 capitalize">{(u.role ?? 'member').toLowerCase().replace('_', ' ')}</p>
             </div>
             <select
-              value={u.role}
+              value={u.role ?? 'MEMBER'}
               onChange={e => handleRoleChange(u.id, e.target.value as Role)}
               className="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700 outline-none focus:border-indigo-300 bg-white"
             >
+              <option value="VIEWER">Viewer</option>
               <option value="MEMBER">Member</option>
               <option value="VERTICAL_LEAD">Vertical Lead</option>
               <option value="ADMIN">Admin</option>
@@ -353,7 +357,7 @@ function UsersTab() {
 
 // ── Programs tab ──────────────────────────────────────────────────────────────
 function ProgramsTab() {
-  const { programs, users, verticals, refreshPrograms } = useApp()
+  const { programs, users, verticals, refreshPrograms, activeWorkspaceId } = useApp()
   const [name, setName] = useState('')
   const [iconType, setIconType] = useState<IconType>('layers')
   const [deadline, setDeadline] = useState('')
@@ -374,10 +378,10 @@ function ProgramsTab() {
   const [saving, setSaving] = useState(false)
 
   const handleCreate = async () => {
-    if (!name.trim()) return
+    if (!name.trim() || !activeWorkspaceId) return
     setCreating(true)
     try {
-      await createProgram(name.trim(), iconType, deadline || null, color)
+      await createProgram(name.trim(), iconType, deadline || null, activeWorkspaceId, color)
       setName(''); setDeadline(''); setColor('#6366f1')
       await refreshPrograms()
     } finally { setCreating(false) }
@@ -677,7 +681,7 @@ function ProgramsTab() {
 
 // ── Stakeholders tab ──────────────────────────────────────────────────────────
 function StakeholdersTab() {
-  const { stakeholders, refreshStakeholders } = useApp()
+  const { stakeholders, refreshStakeholders, activeWorkspaceId } = useApp()
 
   // New form state
   const [newOrg, setNewOrg] = useState('')
@@ -696,7 +700,7 @@ function StakeholdersTab() {
   const [saving, setSaving] = useState(false)
 
   const handleCreate = async () => {
-    if (!newOrg.trim() || !newName.trim()) return
+    if (!newOrg.trim() || !newName.trim() || !activeWorkspaceId) return
     setCreating(true)
     try {
       await createStakeholder({
@@ -704,6 +708,7 @@ function StakeholdersTab() {
         name: newName.trim(),
         email: newEmail.trim() || null,
         contact_no: newContact.trim() || null,
+        workspaceId: activeWorkspaceId,
       })
       setNewOrg(''); setNewName(''); setNewEmail(''); setNewContact('')
       setShowForm(false)
@@ -866,6 +871,167 @@ function StakeholdersTab() {
   )
 }
 
+// ── Invites tab ───────────────────────────────────────────────────────────────
+function InvitesTab() {
+  const { activeWorkspaceId } = useApp()
+  const [invites, setInvites] = useState<WorkspaceInvite[]>([])
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<Role>('MEMBER')
+  const [loading, setLoading] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin
+
+  const load = async () => {
+    if (!activeWorkspaceId) return
+    setLoading(true)
+    try { setInvites(await listInvites(activeWorkspaceId)) } finally { setLoading(false) }
+  }
+
+  useEffect(() => { load() }, [activeWorkspaceId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSend = async () => {
+    if (!email.trim() || !activeWorkspaceId || sending) return
+    setSending(true)
+    try {
+      const invite = await createInvite({ workspaceId: activeWorkspaceId, email: email.trim(), role })
+      const link = `${appUrl}/invite/${invite.token}`
+      await navigator.clipboard.writeText(link)
+      setEmail('')
+      await load()
+      alert(`Invite link copied to clipboard!\n\n${link}`)
+    } catch (err) {
+      console.error('[InvitesTab] send:', err)
+    } finally { setSending(false) }
+  }
+
+  const handleRevoke = async (inviteId: string) => {
+    if (!confirm('Revoke this invite?')) return
+    await revokeInvite(inviteId)
+    await load()
+  }
+
+  const copyLink = async (token: string, inviteId: string) => {
+    const link = `${appUrl}/invite/${token}`
+    await navigator.clipboard.writeText(link)
+    setCopiedId(inviteId)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  const getStatus = (invite: WorkspaceInvite): { label: string; color: string } => {
+    if (invite.used_at) return { label: 'Used', color: 'bg-gray-100 text-gray-500' }
+    if (new Date(invite.expires_at) < new Date()) return { label: 'Expired', color: 'bg-red-100 text-red-600' }
+    return { label: 'Pending', color: 'bg-green-100 text-green-700' }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Send invite form */}
+      <div className="bg-white rounded-xl border border-gray-100 p-5">
+        <h3 className="text-sm font-bold text-gray-700 mb-3">Invite a Team Member</h3>
+        <div className="flex gap-3 items-end flex-wrap">
+          <div className="flex-1 min-w-52">
+            <label className="admin-label">Email Address</label>
+            <div className="relative">
+              <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSend()}
+                placeholder="colleague@example.com"
+                className={`${inputCls} pl-9`}
+              />
+            </div>
+          </div>
+          <div className="w-40">
+            <label className="admin-label">Role</label>
+            <select value={role} onChange={e => setRole(e.target.value as Role)} className={inputCls}>
+              <option value="VIEWER">Viewer</option>
+              <option value="MEMBER">Member</option>
+              <option value="VERTICAL_LEAD">Vertical Lead</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+          <button
+            onClick={handleSend}
+            disabled={sending || !email.trim()}
+            className={btnPrimary}
+          >
+            <Plus size={15} /> {sending ? 'Sending…' : 'Send Invite'}
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mt-2">Invite link will be copied to your clipboard.</p>
+      </div>
+
+      {/* Invites table */}
+      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        {loading ? (
+          <p className="px-6 py-8 text-sm text-gray-400 text-center">Loading…</p>
+        ) : invites.length === 0 ? (
+          <p className="px-6 py-8 text-sm text-gray-400 text-center">No invites sent yet.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-left">
+                <th className="px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Email</th>
+                <th className="px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Role</th>
+                <th className="px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                <th className="px-5 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Expires</th>
+                <th className="px-5 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {invites.map(inv => {
+                const status = getStatus(inv)
+                const isPending = !inv.used_at && new Date(inv.expires_at) >= new Date()
+                return (
+                  <tr key={inv.id} className="hover:bg-gray-50/50">
+                    <td className="px-5 py-3 text-gray-800 font-medium">{inv.email}</td>
+                    <td className="px-5 py-3 capitalize text-gray-600">{inv.role.toLowerCase().replace('_', ' ')}</td>
+                    <td className="px-5 py-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
+                        <Clock size={10} />
+                        {status.label}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-gray-500 text-xs">
+                      {new Date(inv.expires_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        {isPending && (
+                          <button
+                            onClick={() => copyLink(inv.token, inv.id)}
+                            className="text-gray-400 hover:text-indigo-500 transition-colors"
+                            title="Copy invite link"
+                          >
+                            {copiedId === inv.id ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                          </button>
+                        )}
+                        {isPending && (
+                          <button
+                            onClick={() => handleRevoke(inv.id)}
+                            className="text-gray-300 hover:text-red-400 transition-colors"
+                            title="Revoke invite"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Admin Page ────────────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>('verticals')
@@ -875,13 +1041,14 @@ export default function AdminPage() {
     { id: 'users',        label: 'Users' },
     { id: 'programs',     label: 'Projects' },
     { id: 'stakeholders', label: 'Stakeholders' },
+    { id: 'invites',      label: 'Invites' },
   ]
 
   return (
     <div className="flex-1 overflow-auto px-8 py-7 bg-gray-50">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Manage verticals, team members, projects, and stakeholders</p>
+        <p className="text-sm text-gray-500 mt-0.5">Manage verticals, team members, projects, stakeholders, and invites</p>
       </div>
 
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6">
@@ -904,6 +1071,7 @@ export default function AdminPage() {
       {activeTab === 'users'        && <UsersTab />}
       {activeTab === 'programs'     && <ProgramsTab />}
       {activeTab === 'stakeholders' && <StakeholdersTab />}
+      {activeTab === 'invites'      && <InvitesTab />}
     </div>
   )
 }

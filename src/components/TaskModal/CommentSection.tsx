@@ -10,9 +10,10 @@ interface CommentSectionProps {
   comments: Comment[]
   onCommentAdded: (comment: Comment) => void
   onLogged: (log: ActivityLog) => void
+  canWrite?: boolean
 }
 
-export default function CommentSection({ taskId, comments, onCommentAdded, onLogged }: CommentSectionProps) {
+export default function CommentSection({ taskId, comments, onCommentAdded, onLogged, canWrite = true }: CommentSectionProps) {
   const { profile } = useAuth()
   const [text, setText] = useState('')
   const [posting, setPosting] = useState(false)
@@ -73,8 +74,8 @@ export default function CommentSection({ taskId, comments, onCommentAdded, onLog
         </div>
       )}
 
-      {/* Post form */}
-      {profile && (
+      {/* Post form — hidden for viewers */}
+      {profile && canWrite && (
         <div className="flex gap-2.5">
           <Avatar user={profile} size="sm" />
           <div className="flex-1 flex gap-2 items-end">

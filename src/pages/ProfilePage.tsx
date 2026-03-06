@@ -169,7 +169,7 @@ export default function ProfilePage() {
               </h1>
             )}
 
-            <p className="text-sm text-gray-400 capitalize">{subject.role.toLowerCase().replace('_', ' ')}</p>
+            <p className="text-sm text-gray-400 capitalize">{subject.role?.toLowerCase().replace('_', ' ')}</p>
             {vertical && (
               <span
                 className="inline-block mt-1.5 text-xs font-medium px-2 py-0.5 rounded-md"

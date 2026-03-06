@@ -17,6 +17,8 @@ import AllTasksPage from './pages/AllTasksPage'
 import ProfilePage from './pages/ProfilePage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import AcceptInvitePage from './pages/AcceptInvitePage'
+import SelectWorkspacePage from './pages/SelectWorkspacePage'
 
 // ── Protected wrapper ────────────────────────────────────────────────────────
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -27,7 +29,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading, isAdmin } = useAuth()
+  const { session, loading } = useAuth()
+  const { isAdmin } = useApp()
   if (loading) return <LoadingScreen />
   if (!session) return <Navigate to="/login" replace />
   if (!isAdmin) return <Navigate to="/" replace />
@@ -81,6 +84,7 @@ export default function App() {
           {/* Public */}
           <Route path="/login"           element={<LoginPage />} />
           <Route path="/register"        element={<RegisterPage />} />
+          <Route path="/invite/:token"   element={<AcceptInvitePage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password"  element={<ResetPasswordPage />} />
 
@@ -148,6 +152,15 @@ export default function App() {
             <ProtectedRoute>
               <AppShell>
                 <ProfilePage />
+              </AppShell>
+            </ProtectedRoute>
+          } />
+
+          {/* Workspace selection */}
+          <Route path="/select-workspace" element={
+            <ProtectedRoute>
+              <AppShell>
+                <SelectWorkspacePage />
               </AppShell>
             </ProtectedRoute>
           } />

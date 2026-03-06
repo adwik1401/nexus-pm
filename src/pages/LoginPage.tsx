@@ -34,12 +34,12 @@ export default function LoginPage() {
           <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
             <Grid3X3 size={20} className="text-white" />
           </div>
-          <span className="text-white font-bold text-2xl tracking-tight">Nexus</span>
+          <span className="text-white font-bold text-2xl tracking-tight">Planzo</span>
         </div>
 
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           <h1 className="text-xl font-bold text-gray-900 mb-1">Welcome back</h1>
-          <p className="text-sm text-gray-500 mb-6">Sign in to your Nexus workspace</p>
+          <p className="text-sm text-gray-500 mb-6">Sign in to your Planzo workspace</p>
 
           {error && (
             <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-lg px-4 py-3 mb-4">
@@ -57,7 +57,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="you@qcin.org"
+                placeholder="you@example.com"
                 className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
               />
             </div>

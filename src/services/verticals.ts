@@ -1,20 +1,21 @@
 import { supabase } from '../lib/supabase'
 import type { Vertical } from '../types'
 
-export async function listVerticals(): Promise<Vertical[]> {
+export async function listVerticals(workspaceId: string): Promise<Vertical[]> {
   const { data, error } = await supabase
     .from('verticals')
     .select('*')
+    .eq('workspace_id', workspaceId)
     .order('name')
 
   if (error) throw error
   return data as Vertical[]
 }
 
-export async function createVertical(name: string, color: string): Promise<Vertical> {
+export async function createVertical(name: string, color: string, workspaceId: string): Promise<Vertical> {
   const { data, error } = await supabase
     .from('verticals')
-    .insert({ name, color })
+    .insert({ name, color, workspace_id: workspaceId })
     .select()
     .single()
 

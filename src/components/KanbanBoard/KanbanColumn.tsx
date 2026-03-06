@@ -12,7 +12,7 @@ interface KanbanColumnProps {
 }
 
 export default function KanbanColumn({ title, status, tasks, onDragStart, onDrop }: KanbanColumnProps) {
-  const { addTask, activeProgramId, selectTask } = useApp()
+  const { addTask, activeProgramId, selectTask, canWrite } = useApp()
 
   const handleAddTask = async () => {
     if (!activeProgramId) return
@@ -55,12 +55,14 @@ export default function KanbanColumn({ title, status, tasks, onDragStart, onDrop
           {tasks.length}
         </span>
         <div className="flex items-center gap-1 ml-auto">
-          <button
-            onClick={handleAddTask}
-            className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-200 transition-colors text-gray-400 hover:text-gray-600"
-          >
-            <Plus size={14} />
-          </button>
+          {canWrite && (
+            <button
+              onClick={handleAddTask}
+              className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-200 transition-colors text-gray-400 hover:text-gray-600"
+            >
+              <Plus size={14} />
+            </button>
+          )}
           <button className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-200 transition-colors text-gray-400 hover:text-gray-600">
             <MoreHorizontal size={14} />
           </button>
@@ -74,14 +76,16 @@ export default function KanbanColumn({ title, status, tasks, onDragStart, onDrop
         ))}
       </div>
 
-      {/* Add Task */}
-      <button
-        onClick={handleAddTask}
-        className="mt-3 flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-indigo-300 hover:text-indigo-400 hover:bg-indigo-50/30 transition-all"
-      >
-        <Plus size={14} />
-        Add Task
-      </button>
+      {/* Add Task — hidden for viewers */}
+      {canWrite && (
+        <button
+          onClick={handleAddTask}
+          className="mt-3 flex items-center justify-center gap-2 py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:border-indigo-300 hover:text-indigo-400 hover:bg-indigo-50/30 transition-all"
+        >
+          <Plus size={14} />
+          Add Task
+        </button>
+      )}
     </div>
   )
 }

@@ -1,22 +1,26 @@
 import { supabase } from '../lib/supabase'
 import type { Profile, Role } from '../types'
 
-export async function listUsers(): Promise<Profile[]> {
+export async function listUsers(workspaceId: string): Promise<Profile[]> {
   const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .order('name')
+    .from('workspace_members')
+    .select('role, user:profiles(id, name, profile_image, dob, vertical_id, created_at)')
+    .eq('workspace_id', workspaceId)
+    .order('role')
 
   if (error) throw error
-  return data as Profile[]
+  return (data ?? []).map(r => ({
+    ...(r.user as unknown as Record<string, unknown>),
+    role: r.role as Role,
+  })) as Profile[]
 }
 
-export async function updateUserRole(userId: string, role: Role): Promise<void> {
+export async function updateUserRole(userId: string, role: Role, workspaceId: string): Promise<void> {
   const { error } = await supabase
-    .from('profiles')
+    .from('workspace_members')
     .update({ role })
-    .eq('id', userId)
-
+    .eq('user_id', userId)
+    .eq('workspace_id', workspaceId)
   if (error) throw error
 }
 

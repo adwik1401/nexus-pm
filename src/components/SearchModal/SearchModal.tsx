@@ -209,7 +209,7 @@ export default function SearchModal({ onClose }: SearchModalProps) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{u.name}</p>
-                    <p className="text-[11px] text-gray-400 capitalize">{u.role.toLowerCase().replace('_', ' ')}</p>
+                    <p className="text-[11px] text-gray-400 capitalize">{u.role?.toLowerCase().replace('_', ' ')}</p>
                   </div>
                   <Tag type="user" />
                 </button>

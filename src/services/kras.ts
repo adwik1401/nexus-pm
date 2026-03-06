@@ -13,11 +13,11 @@ export async function listKRAs(userId: string): Promise<KRA[]> {
   return (data ?? []) as KRA[]
 }
 
-export async function createKRA(userId: string, title: string, description: string): Promise<KRA> {
+export async function createKRA(userId: string, title: string, description: string, workspaceId: string): Promise<KRA> {
   const { data: { user } } = await supabase.auth.getUser()
   const { data, error } = await supabase
     .from('kras')
-    .insert({ user_id: userId, title, description, created_by: user?.id ?? null })
+    .insert({ user_id: userId, title, description, created_by: user?.id ?? null, workspace_id: workspaceId })
     .select()
     .single()
   if (error) throw error
@@ -46,11 +46,11 @@ export async function listKPIs(userId: string): Promise<KPI[]> {
   return (data ?? []) as KPI[]
 }
 
-export async function createKPI(userId: string, title: string, description: string): Promise<KPI> {
+export async function createKPI(userId: string, title: string, description: string, workspaceId: string): Promise<KPI> {
   const { data: { user } } = await supabase.auth.getUser()
   const { data, error } = await supabase
     .from('kpis')
-    .insert({ user_id: userId, title, description, created_by: user?.id ?? null })
+    .insert({ user_id: userId, title, description, created_by: user?.id ?? null, workspace_id: workspaceId })
     .select()
     .single()
   if (error) throw error

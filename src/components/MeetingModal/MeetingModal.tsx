@@ -14,6 +14,7 @@ export default function MeetingModal() {
     newMeetingDate,
     users, verticals, stakeholders,
     refreshMeetings,
+    activeWorkspaceId,
   } = useApp()
 
   const isOpen = selectedMeeting !== null || newMeetingDate !== null
@@ -102,6 +103,7 @@ export default function MeetingModal() {
         link: mode === 'ONLINE' ? (link.trim() || null) : null,
         location: mode === 'OFFLINE' ? (location.trim() || null) : null,
         vertical_id: verticalId || null,
+        workspaceId: activeWorkspaceId!,
       }
 
       let meetingId: string
@@ -277,7 +279,7 @@ export default function MeetingModal() {
                   />
                   <Avatar user={u} size="sm" />
                   <span className="text-sm text-gray-700 flex-1">{u.name}</span>
-                  <span className="text-xs text-gray-400 capitalize">{u.role.toLowerCase().replace('_', ' ')}</span>
+                  <span className="text-xs text-gray-400 capitalize">{u.role?.toLowerCase().replace('_', ' ')}</span>
                 </label>
               ))}
               {users.length === 0 && (

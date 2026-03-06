@@ -3,6 +3,7 @@ import type { ActivityLog, Comment, ContextBlock, SubTask, Tag, Task, TaskStatus
 
 // ── List tasks (with filters) ───────────────────────────────────────────────
 export async function listTasks(filters: {
+  workspaceId?: string
   projectId?: string
   assigneeId?: string
   verticalId?: string
@@ -12,7 +13,7 @@ export async function listTasks(filters: {
     .select(`
       *,
       program:projects(id, name, color, icon_type),
-      assignees:task_assignees(user:profiles(id, name, profile_image, role, vertical_id)),
+      assignees:task_assignees(user:profiles(id, name, profile_image, vertical_id)),
       verticals:task_verticals(vertical:verticals(id, name, color)),
       tags(*),
       context_blocks(*),
@@ -20,6 +21,7 @@ export async function listTasks(filters: {
     `)
     .order('created_at')
 
+  if (filters.workspaceId) query = query.eq('workspace_id', filters.workspaceId)
   if (filters.projectId) query = query.eq('project_id', filters.projectId)
   if (filters.assigneeId) {
     // tasks where this user is an assignee
@@ -44,7 +46,7 @@ export async function getTask(id: string): Promise<Task> {
     .from('tasks')
     .select(`
       *,
-      assignees:task_assignees(user:profiles(id, name, profile_image, role, vertical_id)),
+      assignees:task_assignees(user:profiles(id, name, profile_image, vertical_id)),
       verticals:task_verticals(vertical:verticals(id, name, color)),
       tags(*),
       context_blocks(*),
@@ -62,6 +64,7 @@ export async function getTask(id: string): Promise<Task> {
 export async function createTask(opts: {
   title: string
   projectId: string
+  workspaceId: string
   status?: TaskStatus
 }): Promise<Task> {
   const { data, error } = await supabase
@@ -69,6 +72,7 @@ export async function createTask(opts: {
     .insert({
       title: opts.title,
       project_id: opts.projectId,
+      workspace_id: opts.workspaceId,
       status: opts.status ?? 'TODO',
     })
     .select()
@@ -83,6 +87,7 @@ export async function updateTask(id: string, updates: {
   title?: string
   description?: string
   status?: TaskStatus
+  start_date?: string | null
   due_date?: string | null
 }): Promise<void> {
   const { error } = await supabase.from('tasks').update(updates).eq('id', id)

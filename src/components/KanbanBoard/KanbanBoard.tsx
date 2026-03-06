@@ -10,17 +10,18 @@ const COLUMNS: { title: string; status: TaskStatus }[] = [
 ]
 
 export default function KanbanBoard() {
-  const { tasks, moveTask } = useApp()
+  const { tasks, moveTask, canWrite } = useApp()
   const [draggedId, setDraggedId] = useState<string | null>(null)
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    if (!canWrite) { e.preventDefault(); return }
     setDraggedId(taskId)
     e.dataTransfer.effectAllowed = 'move'
   }
 
   const handleDrop = (e: React.DragEvent, status: TaskStatus) => {
     e.preventDefault()
-    if (draggedId) {
+    if (draggedId && canWrite) {
       moveTask(draggedId, status)
       setDraggedId(null)
     }

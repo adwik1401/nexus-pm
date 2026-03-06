@@ -1,15 +1,16 @@
 import { supabase } from '../lib/supabase'
 import type { GanttTask, IconType, Program } from '../types'
 
-export async function listPrograms(): Promise<Program[]> {
+export async function listPrograms(workspaceId: string): Promise<Program[]> {
   const { data, error } = await supabase
     .from('projects')
     .select(`
       *,
-      members:project_members(user:profiles(id, name, profile_image, role, vertical_id)),
+      members:project_members(user:profiles(id, name, profile_image, vertical_id)),
       tasks(id, status),
       gantt_tasks(*)
     `)
+    .eq('workspace_id', workspaceId)
     .order('created_at')
 
   if (error) throw error
@@ -29,10 +30,10 @@ export async function listPrograms(): Promise<Program[]> {
 
 const DEFAULT_PROGRAM_COLOR = '#6366f1'
 
-export async function createProgram(name: string, iconType: IconType, deadline: string | null, color?: string): Promise<Program> {
+export async function createProgram(name: string, iconType: IconType, deadline: string | null, workspaceId: string, color?: string): Promise<Program> {
   const { data, error } = await supabase
     .from('projects')
-    .insert({ name, icon_type: iconType, deadline: deadline || null, color: color ?? DEFAULT_PROGRAM_COLOR })
+    .insert({ name, icon_type: iconType, deadline: deadline || null, color: color ?? DEFAULT_PROGRAM_COLOR, workspace_id: workspaceId })
     .select()
     .single()
 

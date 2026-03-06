@@ -1,10 +1,11 @@
 import { supabase } from '../lib/supabase'
 import type { ExternalStakeholder } from '../types'
 
-export async function listStakeholders(): Promise<ExternalStakeholder[]> {
+export async function listStakeholders(workspaceId: string): Promise<ExternalStakeholder[]> {
   const { data, error } = await supabase
     .from('external_stakeholders')
     .select('*')
+    .eq('workspace_id', workspaceId)
     .order('created_at')
   if (error) throw error
   return (data ?? []) as ExternalStakeholder[]
@@ -15,10 +16,12 @@ export async function createStakeholder(opts: {
   name: string
   email: string | null
   contact_no: string | null
+  workspaceId: string
 }): Promise<ExternalStakeholder> {
+  const { workspaceId, ...rest } = opts
   const { data, error } = await supabase
     .from('external_stakeholders')
-    .insert(opts)
+    .insert({ ...rest, workspace_id: workspaceId })
     .select()
     .single()
   if (error) throw error
