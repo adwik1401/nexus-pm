@@ -11,12 +11,12 @@ interface AuthContextValue {
   profile: Profile | null
   memberships: WorkspaceMembership[]
   loading: boolean
-  // isAdmin here means "admin in ANY workspace" — used only for route gating in App.tsx
-  // For workspace-specific role checks use isAdmin/isViewer/canWrite from AppContext
+  // isAdmin here means "admin in ANY workspace" and is used only for route gating in App.tsx.
+  // For workspace-specific role checks use isAdmin/isViewer/canWrite from AppContext.
   isAdmin: boolean
   login: (email: string, password: string) => Promise<void>
-  // Initiates Google OAuth. Pass inviteToken if the user came from an invite link —
-  // it will be preserved across the OAuth redirect and auto-accepted on return.
+  // Initiates Google OAuth. Pass inviteToken if the user came from an invite link.
+  // It will be preserved across the OAuth redirect and auto-accepted on return.
   loginWithGoogle: (inviteToken?: string) => Promise<void>
   logout: () => Promise<void>
   refreshMemberships: () => Promise<void>
@@ -40,34 +40,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s)
-      if (s?.user) fetchProfileAndMemberships(s.user.id).finally(() => setLoading(false))
-      else setLoading(false)
-    })
+    ;(async () => {
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession()
+        setSession(s)
+        if (s?.user) {
+          await fetchProfileAndMemberships(s.user.id)
+        } else {
+          setProfile(null)
+          setMemberships([])
+        }
+      } catch (err) {
+        console.error('[AuthContext] getSession:', err)
+        setSession(null)
+        setProfile(null)
+        setMemberships([])
+      } finally {
+        setLoading(false)
+      }
+    })()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
-      setSession(s)
-      if (s?.user) {
-        // For Google OAuth sign-ins, check localStorage for a pending invite token.
-        // The token is written by loginWithGoogle() before the OAuth redirect so it
-        // survives the round-trip. We accept it here before fetching memberships so
-        // the user's workspace is visible immediately after sign-in.
-        if (event === 'SIGNED_IN' && s.user.app_metadata?.provider === 'google') {
-          const pendingToken = localStorage.getItem(OAUTH_INVITE_KEY)
-          if (pendingToken) {
-            localStorage.removeItem(OAUTH_INVITE_KEY) // clear first — prevents double-accept on re-render
-            try {
-              await acceptInvite(pendingToken)
-            } catch (err) {
-              // Non-fatal: user may already be a member, or token expired.
-              // They can still create/join a workspace manually.
-              console.error('[AuthContext] acceptInvite (OAuth):', err)
+      // NOTE: do NOT call setLoading(true) here — onAuthStateChange fires for every auth
+      // event (INITIAL_SESSION, TOKEN_REFRESHED, etc.) and would cause a full-page spinner
+      // on every token refresh. Loading state is managed solely by the getSession() IIFE above.
+      try {
+        setSession(s)
+        if (s?.user) {
+          if (event === 'SIGNED_IN' && s.user.app_metadata?.provider === 'google') {
+            const pendingToken = localStorage.getItem(OAUTH_INVITE_KEY)
+            if (pendingToken) {
+              localStorage.removeItem(OAUTH_INVITE_KEY)
+              try {
+                await acceptInvite(pendingToken)
+              } catch (err) {
+                // Non-fatal: user may already be a member, or token expired.
+                console.error('[AuthContext] acceptInvite (OAuth):', err)
+              }
             }
           }
+          await fetchProfileAndMemberships(s.user.id)
+        } else {
+          setProfile(null)
+          setMemberships([])
         }
-        await fetchProfileAndMemberships(s.user.id)
-      } else {
+      } catch (err) {
+        console.error('[AuthContext] onAuthStateChange:', err)
+        setSession(null)
         setProfile(null)
         setMemberships([])
       }

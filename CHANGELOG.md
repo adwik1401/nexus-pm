@@ -1,6 +1,50 @@
 # Changelog
 
-All notable changes to Nexus PM are documented here.
+All notable changes to Planzo are documented here.
+
+---
+
+## [1.5.0] — 2026-03-08
+
+### Performance
+
+**Route-level code splitting**
+- All page components converted to `React.lazy()` + `Suspense` in `App.tsx`
+- Initial JS bundle reduced from **583 KB → 264 KB** (gzipped: 158 KB → 78 KB) — a 51% reduction
+- Each page now loads as a separate chunk on first visit; `AdminPage` (31 KB) no longer bundled for all users
+
+**Vendor chunk splitting** (`vite.config.ts`)
+- React + React Router, Supabase JS, and Lucide React split into dedicated vendor chunks
+- Vendor files cached independently by the browser — app code updates no longer bust the React/Supabase cache
+
+### Fixed
+
+**Auth loading spinner after login**
+- Removed erroneous `setLoading(true)` call from `onAuthStateChange` in `AuthContext.tsx`
+- `onAuthStateChange` fires for every Supabase auth event (`INITIAL_SESSION`, `SIGNED_IN`, `TOKEN_REFRESHED`, etc.) — setting `loading = true` there caused a full-page spinner after every login and a flash on every background token refresh
+- `loading` state is now controlled solely by the initial `getSession()` IIFE
+
+**Admin page redirect race condition** (`App.tsx`)
+- `AdminRoute` was using `useApp().isAdmin` which depends on `activeWorkspaceId` being validated — on first render this could be `null`, causing admins to be redirected to `/`
+- Fixed by switching to `useAuth().isAdmin` (checks any-workspace admin) which is available immediately after auth resolves
+
+**Supabase Web Lock 5-second timeout warning** (`src/lib/supabase.ts`)
+- Replaced `lock: undefined` (which keeps the default Web Lock) with a no-op lock function
+- Eliminates the `Lock was not released within 5000ms` console warning on every app load
+
+### Changed
+- Removed unused `StrictMode` import from `src/main.tsx`
+
+---
+
+## [1.4.1] — 2026-03-06
+
+### Infrastructure
+- Migrated production domain from `nexus-pm-tool.netlify.app` to `https://planzo.io`
+- Custom domain configured via Hostinger DNS (A record → `75.2.60.5`, CNAME `www` → Netlify)
+- SSL/TLS certificate provisioned by Netlify (Let's Encrypt); HTTPS enforced
+- `VITE_APP_URL` updated to `https://planzo.io` in Netlify environment variables
+- Supabase Auth URLs updated: Site URL and redirect allowlist now point to `https://planzo.io`
 
 ---
 
@@ -215,7 +259,7 @@ New tables added (run additions SQL in Supabase SQL Editor for existing installs
 - Vertical Leads have scoped visibility (own vertical only)
 
 **Infra**
-- Deployed to Netlify (`nexus-pm-tool.netlify.app`)
+- Deployed to Netlify (`planzo.io`)
 - `public/_redirects` for SPA client-side routing fallback
 - Supabase PostgreSQL backend with RLS policies on all tables
 

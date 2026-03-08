@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { AppProvider, useApp } from './context/AppContext'
@@ -7,18 +8,21 @@ import KanbanBoard from './components/KanbanBoard/KanbanBoard'
 import GanttChart from './components/GanttChart/GanttChart'
 import TaskModal from './components/TaskModal/TaskModal'
 import MeetingModal from './components/MeetingModal/MeetingModal'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import AllProjectsPage from './pages/AllProjectsPage'
-import AdminPage from './pages/AdminPage'
-import MeetingsPage from './pages/MeetingsPage'
-import MyTasksPage from './pages/MyTasksPage'
-import AllTasksPage from './pages/AllTasksPage'
-import ProfilePage from './pages/ProfilePage'
-import ForgotPasswordPage from './pages/ForgotPasswordPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import AcceptInvitePage from './pages/AcceptInvitePage'
-import SelectWorkspacePage from './pages/SelectWorkspacePage'
+
+// ── Lazy-loaded pages (code-split per route) ──────────────────────────────────
+// Each page loads only when first visited — keeps the initial bundle small.
+const LoginPage           = lazy(() => import('./pages/LoginPage'))
+const RegisterPage        = lazy(() => import('./pages/RegisterPage'))
+const AcceptInvitePage    = lazy(() => import('./pages/AcceptInvitePage'))
+const ForgotPasswordPage  = lazy(() => import('./pages/ForgotPasswordPage'))
+const ResetPasswordPage   = lazy(() => import('./pages/ResetPasswordPage'))
+const AllProjectsPage     = lazy(() => import('./pages/AllProjectsPage'))
+const AdminPage           = lazy(() => import('./pages/AdminPage'))
+const MeetingsPage        = lazy(() => import('./pages/MeetingsPage'))
+const MyTasksPage         = lazy(() => import('./pages/MyTasksPage'))
+const AllTasksPage        = lazy(() => import('./pages/AllTasksPage'))
+const ProfilePage         = lazy(() => import('./pages/ProfilePage'))
+const SelectWorkspacePage = lazy(() => import('./pages/SelectWorkspacePage'))
 
 // ── Protected wrapper ────────────────────────────────────────────────────────
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -29,8 +33,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth()
-  const { isAdmin } = useApp()
+  // Use AuthContext.isAdmin (admin in ANY workspace) — avoids the race condition
+  // where AppContext.isAdmin is false on first render because activeWorkspaceId
+  // hasn't been validated yet from the memberships useEffect.
+  const { session, loading, isAdmin } = useAuth()
   if (loading) return <LoadingScreen />
   if (!session) return <Navigate to="/login" replace />
   if (!isAdmin) return <Navigate to="/" replace />
@@ -80,94 +86,96 @@ export default function App() {
   return (
     <Router>
       <AuthProvider>
-        <Routes>
-          {/* Public */}
-          <Route path="/login"           element={<LoginPage />} />
-          <Route path="/register"        element={<RegisterPage />} />
-          <Route path="/invite/:token"   element={<AcceptInvitePage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password"  element={<ResetPasswordPage />} />
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            {/* Public */}
+            <Route path="/login"           element={<LoginPage />} />
+            <Route path="/register"        element={<RegisterPage />} />
+            <Route path="/invite/:token"   element={<AcceptInvitePage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password"  element={<ResetPasswordPage />} />
 
-          {/* Protected */}
-          <Route path="/" element={
-            <ProtectedRoute>
-              <AppProvider>
-                <div className="flex h-screen w-screen overflow-hidden">
-                  <Sidebar />
-                  <MainBoard />
-                </div>
-              </AppProvider>
-            </ProtectedRoute>
-          } />
+            {/* Protected */}
+            <Route path="/" element={
+              <ProtectedRoute>
+                <AppProvider>
+                  <div className="flex h-screen w-screen overflow-hidden">
+                    <Sidebar />
+                    <MainBoard />
+                  </div>
+                </AppProvider>
+              </ProtectedRoute>
+            } />
 
-          <Route path="/projects" element={
-            <ProtectedRoute>
-              <AppShell>
-                <AllProjectsPage />
-              </AppShell>
-            </ProtectedRoute>
-          } />
+            <Route path="/projects" element={
+              <ProtectedRoute>
+                <AppShell>
+                  <AllProjectsPage />
+                </AppShell>
+              </ProtectedRoute>
+            } />
 
-          <Route path="/admin" element={
-            <AdminRoute>
-              <AppShell>
-                <AdminPage />
-              </AppShell>
-            </AdminRoute>
-          } />
+            <Route path="/admin" element={
+              <AdminRoute>
+                <AppShell>
+                  <AdminPage />
+                </AppShell>
+              </AdminRoute>
+            } />
 
-          <Route path="/meetings" element={
-            <ProtectedRoute>
-              <AppShell>
-                <MeetingsPage />
-              </AppShell>
-            </ProtectedRoute>
-          } />
+            <Route path="/meetings" element={
+              <ProtectedRoute>
+                <AppShell>
+                  <MeetingsPage />
+                </AppShell>
+              </ProtectedRoute>
+            } />
 
-          <Route path="/my-tasks" element={
-            <ProtectedRoute>
-              <AppShell>
-                <MyTasksPage />
-              </AppShell>
-            </ProtectedRoute>
-          } />
+            <Route path="/my-tasks" element={
+              <ProtectedRoute>
+                <AppShell>
+                  <MyTasksPage />
+                </AppShell>
+              </ProtectedRoute>
+            } />
 
-          <Route path="/all-tasks" element={
-            <ProtectedRoute>
-              <AppShell>
-                <AllTasksPage />
-              </AppShell>
-            </ProtectedRoute>
-          } />
+            <Route path="/all-tasks" element={
+              <ProtectedRoute>
+                <AppShell>
+                  <AllTasksPage />
+                </AppShell>
+              </ProtectedRoute>
+            } />
 
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <AppShell>
-                <ProfilePage />
-              </AppShell>
-            </ProtectedRoute>
-          } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <AppShell>
+                  <ProfilePage />
+                </AppShell>
+              </ProtectedRoute>
+            } />
 
-          <Route path="/profile/:id" element={
-            <ProtectedRoute>
-              <AppShell>
-                <ProfilePage />
-              </AppShell>
-            </ProtectedRoute>
-          } />
+            <Route path="/profile/:id" element={
+              <ProtectedRoute>
+                <AppShell>
+                  <ProfilePage />
+                </AppShell>
+              </ProtectedRoute>
+            } />
 
-          {/* Workspace selection */}
-          <Route path="/select-workspace" element={
-            <ProtectedRoute>
-              <AppShell>
-                <SelectWorkspacePage />
-              </AppShell>
-            </ProtectedRoute>
-          } />
+            {/* Workspace selection */}
+            <Route path="/select-workspace" element={
+              <ProtectedRoute>
+                <AppShell>
+                  <SelectWorkspacePage />
+                </AppShell>
+              </ProtectedRoute>
+            } />
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </AuthProvider>
     </Router>
   )
