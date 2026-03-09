@@ -132,7 +132,7 @@ export default function Sidebar() {
       // Build invite URL the same way AdminPage does — prefer VITE_APP_URL, fall back to current origin
       const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin
       const link = `${appUrl}/invite/${invite.token}`
-      await navigator.clipboard.writeText(link)
+      navigator.clipboard.writeText(link).catch(() => {})
       setInviteSent(true)
       setInviteEmail('')
       // Auto-dismiss success message after 3 s

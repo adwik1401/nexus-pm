@@ -897,7 +897,7 @@ function InvitesTab() {
     try {
       const invite = await createInvite({ workspaceId: activeWorkspaceId, email: email.trim(), role })
       const link = `${appUrl}/invite/${invite.token}`
-      await navigator.clipboard.writeText(link)
+      navigator.clipboard.writeText(link).catch(() => {})
       setEmail('')
       await load()
       alert(`Invite link copied to clipboard!\n\n${link}`)
@@ -914,7 +914,7 @@ function InvitesTab() {
 
   const copyLink = async (token: string, inviteId: string) => {
     const link = `${appUrl}/invite/${token}`
-    await navigator.clipboard.writeText(link)
+    navigator.clipboard.writeText(link).catch(() => {})
     setCopiedId(inviteId)
     setTimeout(() => setCopiedId(null), 2000)
   }
