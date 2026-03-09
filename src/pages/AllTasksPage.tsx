@@ -118,17 +118,19 @@ function Column({ title, color, status, tasks, onDragStart, onDrop }: {
 }
 
 export default function AllTasksPage() {
-  const { moveTask } = useApp()
+  const { moveTask, activeWorkspaceId } = useApp()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [draggedId, setDraggedId] = useState<string | null>(null)
 
   useEffect(() => {
-    listTasks()
+    if (!activeWorkspaceId) return
+    setLoading(true)
+    listTasks({ workspaceId: activeWorkspaceId })
       .then(setTasks)
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [])
+  }, [activeWorkspaceId])
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     setDraggedId(taskId)
