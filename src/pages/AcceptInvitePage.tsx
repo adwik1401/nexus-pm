@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Grid3X3, Building2, ShieldCheck, Users, Eye } from 'lucide-react'
-import { validateInviteToken } from '../services/invites'
+import { validateInviteToken, acceptInvite } from '../services/invites'
+import { useAuth } from '../context/AuthContext'
 import type { InviteValidation } from '../types'
 
 const ROLE_LABELS: Record<string, { label: string; color: string; Icon: React.ElementType }> = {
@@ -14,6 +15,7 @@ const ROLE_LABELS: Record<string, { label: string; color: string; Icon: React.El
 export default function AcceptInvitePage() {
   const { token } = useParams<{ token: string }>()
   const navigate = useNavigate()
+  const { session, refreshMemberships } = useAuth()
 
   const [invite, setInvite] = useState<InviteValidation | null>(null)
   const [error, setError] = useState('')
@@ -22,13 +24,24 @@ export default function AcceptInvitePage() {
   useEffect(() => {
     if (!token) { setError('Missing invite token.'); setLoading(false); return }
     validateInviteToken(token)
-      .then(data => {
-        if (data) setInvite(data)
-        else setError('This invite link is invalid or has already been used.')
+      .then(async data => {
+        if (!data) { setError('This invite link is invalid or has already been used.'); return }
+        // If user is already logged in, auto-accept and redirect immediately
+        if (session) {
+          try {
+            await acceptInvite(token)
+            await refreshMemberships()
+          } catch {
+            // Non-fatal — may already be a member
+          }
+          navigate('/', { replace: true })
+          return
+        }
+        setInvite(data)
       })
       .catch(() => setError('Failed to validate invite. Please try again.'))
       .finally(() => setLoading(false))
-  }, [token])
+  }, [token, session]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
@@ -87,18 +100,19 @@ export default function AcceptInvitePage() {
                 )
               })()}
 
+              <p className="text-xs text-center text-gray-400 mb-1">New to Planzo? Create an account. Already have one? Sign in.</p>
               <div className="space-y-3">
                 <button
                   onClick={() => navigate(`/register?token=${token}`)}
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
                 >
-                  Create account
+                  Create account — I'm new
                 </button>
                 <button
                   onClick={() => navigate(`/login?redirect=/invite/${token}`)}
                   className="w-full border border-gray-200 hover:border-indigo-300 text-gray-700 font-semibold py-2.5 rounded-lg text-sm transition-colors"
                 >
-                  Sign in to existing account
+                  Sign in — I already have an account
                 </button>
               </div>
 

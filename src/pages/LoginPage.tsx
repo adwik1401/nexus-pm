@@ -141,7 +141,14 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-gray-500 mt-4">
             Don't have an account?{' '}
-            <Link to="/register" className="text-indigo-600 font-semibold hover:underline">
+            <Link
+              to={(() => {
+                const redirect = searchParams.get('redirect') ?? ''
+                const m = redirect.match(/^\/invite\/(.+)$/)
+                return m ? `/register?token=${m[1]}` : '/register'
+              })()}
+              className="text-indigo-600 font-semibold hover:underline"
+            >
               Register
             </Link>
           </p>
