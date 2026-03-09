@@ -16,41 +16,20 @@ export async function createInvite(opts: {
   email: string
   role: Role
 }): Promise<WorkspaceInvite> {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) throw new Error('Not authenticated')
-
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 20000)
-
-  try {
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invite`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          workspaceId: opts.workspaceId,
-          email: opts.email.toLowerCase().trim(),
-          role: opts.role,
-        }),
-        signal: controller.signal,
-      },
-    )
-    clearTimeout(timeoutId)
-    const text = await res.text()
-    let data: Record<string, unknown>
-    try { data = JSON.parse(text) } catch { throw new Error(`Server error ${res.status}: ${text.slice(0, 300)}`) }
-    if (!res.ok || data?.error) throw new Error((data?.error as string) ?? `HTTP ${res.status}: Failed to send invite`)
-    return data as unknown as WorkspaceInvite
-  } catch (err) {
-    clearTimeout(timeoutId)
-    if ((err as Error).name === 'AbortError') throw new Error('Request timed out — please try again')
-    throw err
-  }
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Request timed out — please try again')), 20000)
+  )
+  const invoke = supabase.functions.invoke('send-invite', {
+    body: {
+      workspaceId: opts.workspaceId,
+      email: opts.email.toLowerCase().trim(),
+      role: opts.role,
+    },
+  })
+  const { data, error } = await Promise.race([invoke, timeout])
+  if (error) throw error
+  if (data?.error) throw new Error(data.error as string)
+  return data as WorkspaceInvite
 }
 
 export async function revokeInvite(inviteId: string): Promise<void> {
