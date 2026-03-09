@@ -16,16 +16,39 @@ export async function createInvite(opts: {
   email: string
   role: Role
 }): Promise<WorkspaceInvite> {
-  const { data, error } = await supabase.functions.invoke('send-invite', {
-    body: {
-      workspaceId: opts.workspaceId,
-      email: opts.email.toLowerCase().trim(),
-      role: opts.role,
-    },
-  })
-  if (error) throw error
-  if (data?.error) throw new Error(data.error)
-  return data as WorkspaceInvite
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Not authenticated')
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 20000)
+
+  try {
+    const res = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-invite`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workspaceId: opts.workspaceId,
+          email: opts.email.toLowerCase().trim(),
+          role: opts.role,
+        }),
+        signal: controller.signal,
+      },
+    )
+    clearTimeout(timeoutId)
+    const data = await res.json()
+    if (!res.ok || data?.error) throw new Error(data?.error ?? 'Failed to send invite')
+    return data as WorkspaceInvite
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if ((err as Error).name === 'AbortError') throw new Error('Request timed out — please try again')
+    throw err
+  }
 }
 
 export async function revokeInvite(inviteId: string): Promise<void> {

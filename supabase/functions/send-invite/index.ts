@@ -90,27 +90,37 @@ Deno.serve(async (req) => {
     const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'invites@planzo.io'
     const inviteUrl = `${appUrl}/invite/${invite.token}`
 
-    const emailRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: `Planzo <${fromEmail}>`,
-        to: [email],
-        subject: `You've been invited to join ${workspace?.name ?? 'a workspace'} on Planzo`,
-        html: buildEmailHtml({
-          workspaceName: workspace?.name ?? '',
-          roleLabel: ROLE_LABELS[role] ?? role,
-          inviteUrl,
+    const emailController = new AbortController()
+    const emailTimeout = setTimeout(() => emailController.abort(), 8000)
+    let emailRes: Response | null = null
+    try {
+      emailRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: `Planzo <${fromEmail}>`,
+          to: [email],
+          subject: `You've been invited to join ${workspace?.name ?? 'a workspace'} on Planzo`,
+          html: buildEmailHtml({
+            workspaceName: workspace?.name ?? '',
+            roleLabel: ROLE_LABELS[role] ?? role,
+            inviteUrl,
+          }),
         }),
-      }),
-    })
+        signal: emailController.signal,
+      })
+    } catch (fetchErr) {
+      console.error('[send-invite] Resend fetch error:', fetchErr)
+    } finally {
+      clearTimeout(emailTimeout)
+    }
 
-    const emailSent = emailRes.ok
+    const emailSent = emailRes?.ok ?? false
     if (!emailSent) {
-      const emailErr = await emailRes.json().catch(() => ({}))
+      const emailErr = await emailRes?.json().catch(() => ({}))
       console.error('[send-invite] Resend error:', emailErr)
     }
 
