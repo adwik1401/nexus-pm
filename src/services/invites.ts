@@ -16,18 +16,15 @@ export async function createInvite(opts: {
   email: string
   role: Role
 }): Promise<WorkspaceInvite> {
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data, error } = await supabase
-    .from('workspace_invites')
-    .insert({
-      workspace_id: opts.workspaceId,
+  const { data, error } = await supabase.functions.invoke('send-invite', {
+    body: {
+      workspaceId: opts.workspaceId,
       email: opts.email.toLowerCase().trim(),
       role: opts.role,
-      invited_by: user?.id ?? null,
-    })
-    .select()
-    .single()
+    },
+  })
   if (error) throw error
+  if (data?.error) throw new Error(data.error)
   return data as WorkspaceInvite
 }
 

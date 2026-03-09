@@ -128,11 +128,7 @@ export default function Sidebar() {
     setInviteError('')
     setInviteSent(false)
     try {
-      const invite = await createInvite({ workspaceId: activeWorkspaceId, email: inviteEmail.trim(), role: inviteRole })
-      // Build invite URL the same way AdminPage does — prefer VITE_APP_URL, fall back to current origin
-      const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin
-      const link = `${appUrl}/invite/${invite.token}`
-      navigator.clipboard.writeText(link).catch(() => {})
+      await createInvite({ workspaceId: activeWorkspaceId, email: inviteEmail.trim(), role: inviteRole })
       setInviteSent(true)
       setInviteEmail('')
       // Auto-dismiss success message after 3 s
@@ -420,7 +416,7 @@ export default function Sidebar() {
               {inviteError && <p className="text-[10px] text-red-400 px-0.5 mb-1">{inviteError}</p>}
               {inviteSent && (
                 <p className="text-[10px] text-green-400 px-0.5 mb-1 flex items-center gap-1">
-                  <Check size={10} /> Link copied to clipboard!
+                  <Check size={10} /> Invite sent!
                 </p>
               )}
               <button

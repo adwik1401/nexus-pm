@@ -879,6 +879,7 @@ function InvitesTab() {
   const [role, setRole] = useState<Role>('MEMBER')
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
+  const [sentEmail, setSentEmail] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin
@@ -894,13 +895,12 @@ function InvitesTab() {
   const handleSend = async () => {
     if (!email.trim() || !activeWorkspaceId || sending) return
     setSending(true)
+    setSentEmail(null)
     try {
-      const invite = await createInvite({ workspaceId: activeWorkspaceId, email: email.trim(), role })
-      const link = `${appUrl}/invite/${invite.token}`
-      navigator.clipboard.writeText(link).catch(() => {})
+      await createInvite({ workspaceId: activeWorkspaceId, email: email.trim(), role })
+      setSentEmail(email.trim())
       setEmail('')
       await load()
-      alert(`Invite link copied to clipboard!\n\n${link}`)
     } catch (err) {
       console.error('[InvitesTab] send:', err)
     } finally { setSending(false) }
@@ -962,7 +962,10 @@ function InvitesTab() {
             <Plus size={15} /> {sending ? 'Sending…' : 'Send Invite'}
           </button>
         </div>
-        <p className="text-xs text-gray-400 mt-2">Invite link will be copied to your clipboard.</p>
+        {sentEmail
+          ? <p className="text-xs text-green-600 mt-2">Invite sent to {sentEmail}!</p>
+          : <p className="text-xs text-gray-400 mt-2">An invite email will be sent directly to the recipient.</p>
+        }
       </div>
 
       {/* Invites table */}
