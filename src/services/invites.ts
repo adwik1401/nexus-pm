@@ -41,9 +41,11 @@ export async function createInvite(opts: {
       },
     )
     clearTimeout(timeoutId)
-    const data = await res.json()
-    if (!res.ok || data?.error) throw new Error(data?.error ?? 'Failed to send invite')
-    return data as WorkspaceInvite
+    const text = await res.text()
+    let data: Record<string, unknown>
+    try { data = JSON.parse(text) } catch { throw new Error(`Server error ${res.status}: ${text.slice(0, 300)}`) }
+    if (!res.ok || data?.error) throw new Error((data?.error as string) ?? `HTTP ${res.status}: Failed to send invite`)
+    return data as unknown as WorkspaceInvite
   } catch (err) {
     clearTimeout(timeoutId)
     if ((err as Error).name === 'AbortError') throw new Error('Request timed out — please try again')
