@@ -4,6 +4,68 @@ All notable changes to Planzo are documented here.
 
 ---
 
+## [1.6.0] — 2026-03-10
+
+### Security
+
+**HTTP Security Headers** (`netlify.toml`)
+- Added `Content-Security-Policy` — restricts script/style/connect/img sources to `self` and `*.supabase.co`; blocks XSS and data exfiltration
+- Added `Strict-Transport-Security` (`max-age=31536000; includeSubDomains`) — enforces HTTPS for 1 year, prevents downgrade attacks
+- No CSP violations — app fully functional after deployment verified
+
+**Task RLS audit** (`supabase/migrations/005_rewrite_rls.sql`)
+- Confirmed tasks INSERT/UPDATE already enforce workspace boundary via `with check (workspace_id in (get_my_workspace_ids()) and can_write_in_workspace(workspace_id))` — no additional migration needed
+
+### Performance
+
+**Database indexes** (`supabase/migrations/007_add_workspace_indexes.sql`)
+- Added `tasks_workspace_id_idx` — eliminates full table scan on every kanban/all-tasks load
+- Added `projects_workspace_id_idx` — speeds up workspace switch data fetch
+- Added `meetings_workspace_id_idx` — speeds up calendar and meetings page queries
+- Added `task_assignees_user_id_idx` — covers N+1 lookup in `listTasks` assigneeId filter
+
+---
+
+## [1.5.2] — 2026-03-09
+
+### Added
+
+**Email-based invite flow** (`supabase/functions/send-invite/`, `src/services/invites.ts`)
+- Invites now send a branded HTML email via Resend instead of copying a link to the clipboard
+- New Supabase Edge Function (`send-invite`) verifies the caller is ADMIN, creates the `workspace_invites` record, and sends the email with an **Accept Invitation** button linking to `/invite/:token`
+- Edge Function deployed with `verify_jwt: false` (auth handled internally) and an 8s timeout on the Resend API call to prevent hangs
+- Client updated to call the function via `supabase.functions.invoke` with a 20s `Promise.race` timeout
+- Admin → Invites tab and Sidebar quick invite now show "Invite sent!" on success instead of copying a link
+
+### Fixed
+
+**Invite token lost when switching login → register** (`src/pages/LoginPage.tsx`)
+- "Register" link on the login page now carries the invite token when arriving from `/login?redirect=/invite/:token`, so new users who accidentally click "Sign in" can still reach `/register?token=xxx` and join the correct workspace
+
+**Invite CTA ambiguity** (`src/pages/AcceptInvitePage.tsx`)
+- Added hint text and renamed buttons to "Create account — I'm new" / "Sign in — I already have an account" to eliminate confusion for first-time users
+
+**Invited users auto-accepted after login** (`src/pages/AcceptInvitePage.tsx`)
+- When a logged-in user visits `/invite/:token`, the invite is now accepted automatically via `acceptInvite()` RPC and they are redirected to the app — no dead end
+
+---
+
+## [1.5.1] — 2026-03-09
+
+### Fixed
+
+**Invite button stuck on "Sending…"** (`src/components/Sidebar/Sidebar.tsx`, `src/pages/AdminPage.tsx`)
+- `navigator.clipboard.writeText()` returns a Promise that can hang indefinitely when the browser blocks clipboard permission (document not focused, permission denied without rejection)
+- Because the call was `await`ed, the `finally` block never ran, leaving `inviting = true` permanently
+- Changed all three call sites (sidebar quick invite, Admin → Invites tab send, copy-link button) to fire-and-forget with `.catch(() => {})` — invite is created in the DB regardless of clipboard availability
+
+**All Tasks and My Tasks showing tasks from other workspaces** (`src/pages/AllTasksPage.tsx`, `src/pages/MyTasksPage.tsx`)
+- Both pages called `listTasks()` with no `workspaceId` filter; Supabase RLS returned tasks from every workspace the user belongs to
+- Now passes `activeWorkspaceId` to scope the query to the current workspace
+- Added `activeWorkspaceId` to `useEffect` dependency arrays so both pages re-fetch automatically on workspace switch
+
+---
+
 ## [1.5.0] — 2026-03-08
 
 ### Performance
