@@ -6,3 +6,18 @@
     X-XSS-Protection = "1; mode=block"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+    # Prevent HTTPS downgrade attacks — browser pins HTTPS for 1 year
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
+
+    # Content Security Policy
+    # script-src 'self'        — Vite production build uses ES modules served from same origin
+    # style-src  'unsafe-inline' — required for Tailwind inline style attributes + CSS-in-JS
+    # connect-src *.supabase.co — Supabase REST, Auth, Functions, Storage APIs
+    # connect-src wss://*.supabase.co — Supabase Realtime WebSocket (notifications channel)
+    # img-src *.supabase.co    — Supabase Storage (user avatars)
+    # img-src data:            — base64-encoded images (e.g. generated QR codes in future)
+    # frame-ancestors 'none'  — redundant with X-Frame-Options DENY but belt-and-suspenders
+    # base-uri 'self'          — prevents base tag injection attacks
+    # form-action 'self'       — prevents form redirects to external domains
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data: https://*.supabase.co; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
